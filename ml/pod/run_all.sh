@@ -13,8 +13,14 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 source ml/pod/env.sh
 STAGES="${STAGES:-bootstrap train eval}"
+retain_completed() {
+  STOCK_ON_POD= STOCK_OURS= RETAIN_ONLY=1 bash ml/pod/export_eval.sh || log 'no new finalist receipt; sync diagnostics separately'
+}
 for s in $STAGES; do
-  budget_check "stage $s" 0 hard || exit 5
+  if ! budget_check "stage $s" 0 hard; then
+    [[ "$s" != eval && "$s" != train ]] || retain_completed
+    exit 5
+  fi
   log "=== stage $s"
   case $s in
     bootstrap)  # base weights only when this session trains
@@ -27,7 +33,8 @@ for s in $STAGES; do
       # a failed run (crash, parity FAIL) must not cost the finalists of the others: log it and go on;
       # budget refusal (5) and preflight abort (6) stop the session
       rc=0; timed stage:train bash ml/pod/train_matrix.sh || rc=$?
-      if (( rc == 5 || rc == 6 )); then exit $rc; fi
+      if (( rc == 5 )); then retain_completed; exit 5; fi
+      if (( rc == 6 )); then exit 6; fi
       (( rc == 0 )) || log "stage train: some runs failed (logs/run_all.log, logs/runs.jsonl); continuing with the finished ones" ;;
     eval) timed stage:eval bash ml/pod/export_eval.sh ;;
     *) log "unknown stage $s"; exit 2 ;;

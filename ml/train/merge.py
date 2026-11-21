@@ -62,7 +62,9 @@ def main(argv=None) -> int:
         out = a.out or str(Path(a.run) / "merged")
         p = merge(base, adapter, out, tok_dir=str(Path(a.run) / "final"), revision=revision)
     else:
-        rev = a.revision or cfglib.base_revision({"base_revisions": cfglib.pinned_revisions()}, a.base)
+        if not (a.base and a.adapter and a.out):
+            ap.error("--base, --adapter and --out are required without --run")
+        rev = cfglib.base_revision({"base_revision": a.revision, "base_revisions": cfglib.pinned_revisions()}, a.base)
         p = merge(a.base, a.adapter, a.out, revision=rev)
     print(f"merged -> {p}")
     return 0

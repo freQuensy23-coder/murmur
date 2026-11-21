@@ -4,6 +4,7 @@
 # uv, uv's managed Python (a venv symlinks its interpreter: if the interpreter were on the container
 # disk the venv would break after a stop) and the uv / HF caches.
 # No teacher and no teacher credentials on the pod (the teacher runs on the dev server).
+umask 077
 export W="${MURMUR_WORKSPACE:-/workspace}"
 export REPO="${MURMUR_REPO:-$W/murmur}"
 export LLAMA_TAG="${MURMUR_LLAMA_TAG:-b12503}"
@@ -40,7 +41,7 @@ export PYTHONPATH="$REPO:${PYTHONPATH:-}"
 export TOKENIZERS_PARALLELISM=false
 # markers: volume-backed steps persist; container-disk steps (apt) are re-checked after every start
 export MARK_VOL="$W/.bootstrap"
-export MARK_CTR="/var/tmp/murmur-bootstrap"
+export MARK_CTR="${MURMUR_CONTAINER_MARKERS:-/var/tmp/murmur-bootstrap}"
 mkdir -p "$MURMUR_DATA" "$MURMUR_RUNS" "$MURMUR_EVAL" "$MURMUR_LOGS" "$HF_HOME" "$MARK_VOL" "$MARK_CTR"
 log() { echo "[$(date -u +%FT%TZ)] $*" | tee -a "$MURMUR_LOGS/pod.log" >&2; }
 # timed STAGE: appends {"stage","seconds","rc","utc"} to $MURMUR_LOGS/timings.jsonl (the time budget

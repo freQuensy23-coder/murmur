@@ -71,7 +71,9 @@ def base_revision(cfg: dict, base: str | None = None) -> str | None:
     if not rev:
         raise SystemExit(f"no pinned revision for {base!r}: add it to base_revisions in ml/train/configs/base.yaml "
                          "(full commit sha from the HF API) or pass --set base_revision=<sha>")
-    return str(rev)
+    if not isinstance(rev, str) or not re.fullmatch(r"[0-9a-f]{40}", rev):
+        raise SystemExit(f"invalid pinned revision for {base!r}: use a full 40-character commit SHA")
+    return rev
 
 
 def pinned_revisions(path: str | Path = DEFAULT_CONFIG) -> dict[str, str]:

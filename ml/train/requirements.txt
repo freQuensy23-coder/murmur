@@ -1,7 +1,7 @@
 # Training + export + eval environment (CPU dry run on the dev server and the GPU pod).
 # Torch comes from the index chosen by the caller:
 #   CPU (dev server): --extra-index-url https://download.pytorch.org/whl/cpu   (ml/train/Makefile venv)
-#   GPU (pod):        plain PyPI = torch 2.15.0 built for CUDA 13.2 (needs host driver >= 580);
+#   GPU (pod):        plain PyPI = torch 2.15.0 built for CUDA 13.2 (host must advertise CUDA >= 13.2);
 #                     download.pytorch.org/whl/cu128 stops at torch 2.11.0 (checked 2026-11-18).
 # Versions checked on PyPI 2026-11-18. transformers >= 5.23.0 ships native qwen3_5 and lfm3
 # (no trust_remote_code; lfm3 is absent in 5.22.0).

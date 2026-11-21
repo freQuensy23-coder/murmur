@@ -147,7 +147,7 @@ def main(argv=None) -> int:
     if a.prepare_only:
         return done("PREPARED")
     tag = gguf.stem
-    gpu_args = ["-ngl", str(a.ngl)] + (["--device", "CUDA0"] if a.require_gpu else [])
+    gpu_args = ["-ngl", str(a.ngl)] + (["--device", "CUDA0", "-lv", "5"] if a.require_gpu else [])
     glog = work / f"{tag}{'.' + a.label if a.label else ''}.gpu.log"
     try:   # GPU first: a missing kernel image / JIT failure aborts the server or the request
         gpu = decode(gguf, a.gpu_bin, gpu_args, glog, a.n, a.timeout, a.threads)

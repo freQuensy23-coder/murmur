@@ -5,19 +5,20 @@
 # Delete a marker to redo a step. Expects the code at $REPO (ml/pod/push_code.sh).
 #   bash ml/pod/bootstrap.sh                        # everything the training stages need
 #   MODELS="LiquidAI/LFM3-1.7B" bash ml/pod/bootstrap.sh      # MODELS="" skips the base weights
-# Image: any Ubuntu 22.04/24.04 CUDA image (e.g. runpod/pytorch:*), host driver >= 580 (CUDA 13.x):
-# torch 2.15.0 ships only CUDA 13.2 wheels (PyPI default; download.pytorch.org cu128 stops at 2.11).
+# Image: Ubuntu 22.04/24.04 CUDA on x86-64; require a host advertising CUDA >= 13.2.
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 source ml/pod/env.sh
 step() { [[ -f "$2/$1" ]] && { log "skip $1"; return 1; }; log "run $1"; return 0; }
 
 # ---- 0. GPU + driver (fail fast, before any download)
-drv=$(nvidia-smi --query-gpu=driver_version --format=csv,noheader | head -1)
-cuda=$(nvidia-smi | sed -n 's/.*CUDA Version: \([0-9]*\)\.\([0-9]*\).*/\1\2/p' | head -1)
-log "GPU: $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -1); driver $drv; CUDA ${cuda:-?}"
-if [[ -z "$cuda" || "$cuda" -lt 130 ]]; then
-  log "driver supports CUDA ${cuda:-?} < 13.0: torch 2.15.0 (CUDA 13.2 wheels) will not run. Ask for a host with driver >= 580."
+gpu=$(nvidia-smi --query-gpu=name,memory.total,driver_version --format=csv,noheader)
+smi=$(nvidia-smi)
+cuda=$(sed -n 's/.*CUDA Version: \([0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' <<<"$smi")
+log "GPU: $gpu; driver CUDA ${cuda:-unknown}"
+if [[ ! "$cuda" =~ ^([0-9]+)\.([0-9]+)$ ]] || (( 10#${BASH_REMATCH[1]} < 13 ||
+    (10#${BASH_REMATCH[1]} == 13 && 10#${BASH_REMATCH[2]} < 2) )); then
+  log "Need native CUDA >= 13.2 for this training stack (Linux CUDA 13.2 GA driver >= 595.45.04). CUDA 13.0 alone is not sufficient for this preflight."
   exit 3
 fi
 
@@ -72,12 +73,16 @@ LD_LIBRARY_PATH="$W/llama/cuda/llama-$LLAMA_TAG" "$W/llama/cuda/llama-$LLAMA_TAG
   | grep CUDA0 || log "WARNING: the CUDA 12.8 llama.cpp build lists no CUDA device (step 6b tries the fallbacks)"
 
 # ---- 5. training venv: torch 2.15.0 (CUDA 13.2, PyPI default) + pinned stack + GPU kernels
-if step venv-train "$MARK_VOL"; then
-  uv venv -q -p 3.12 "$VENV_TRAIN"
-  uv pip install -q -p "$VENV_TRAIN/bin/python" -r ml/train/requirements.txt -r ml/train/requirements-gpu.txt
+venv_key=$(sha256sum ml/train/requirements.txt ml/train/requirements-gpu.txt | sha256sum | cut -d' ' -f1)
+venv_marker="$MARK_VOL/venv-train"
+if [[ ! -f "$venv_marker" || $(<"$venv_marker") != "$LLAMA_TAG:$venv_key" || ! -x "$VENV_TRAIN/bin/python" ]]; then
+  rm -f "$venv_marker"
+  uv venv -q --clear -p 3.12 "$VENV_TRAIN"
+  uv pip install -q -p "$VENV_TRAIN/bin/python" --default-index https://pypi.org/simple --only-binary ':all:' \
+    -r ml/train/requirements.txt -r ml/train/requirements-gpu.txt
   uv pip install -q -p "$VENV_TRAIN/bin/python" -e "$LLAMA_SRC/gguf-py"
   uv cache clean -q || true   # ~wheel-sized duplicate on the volume otherwise
-  touch "$MARK_VOL/venv-train"
+  printf '%s\n' "$LLAMA_TAG:$venv_key" >"$venv_marker"
 fi
 rm -f "$MARK_VOL/fla-missing"
 "$VENV_TRAIN/bin/python" - "$MARK_VOL/fla-missing" <<'EOF'
@@ -106,7 +111,9 @@ EOF
 
 # ---- 6. self-test (unit tests: metrics, gates, rendering parity, judge/rescore plumbing via the stub)
 if step selftest "$MARK_VOL"; then
-  "$VENV_TRAIN/bin/python" -m pytest -q ml/eval/tests ml/train/tests
+  env -u MAX_GPU_HOURS -u TARGET_GPU_HOURS -u BUDGET_TAIL_S -u MURMUR_SESSION_START \
+    -u MURMUR_DATA -u MURMUR_RUNS -u MURMUR_EVAL -u MURMUR_LOGS \
+    "$VENV_TRAIN/bin/python" -m pytest -q ml/eval/tests ml/train/tests
   touch "$MARK_VOL/selftest"
 fi
 

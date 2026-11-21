@@ -40,7 +40,11 @@ def test_local_dir_needs_none_and_unpinned_hub_repo_is_refused(tmp_path):
     assert cfglib.base_revision({"base_model": str(tmp_path)}) is None
     with pytest.raises(SystemExit, match="no pinned revision"):
         cfglib.base_revision({"base_model": "someone/unknown-model", "base_revisions": cfglib.pinned_revisions()})
-    assert cfglib.base_revision({"base_model": "someone/unknown-model", "base_revision": "abc"}) == "abc"
+    sha = "a1" * 20
+    assert cfglib.base_revision({"base_model": "someone/unknown-model", "base_revision": sha}) == sha
+    for ref in ("main", "refs/pr/2", "abc"):
+        with pytest.raises(SystemExit, match="invalid pinned revision"):
+            cfglib.base_revision({"base_model": "someone/unknown-model", "base_revision": ref})
 
 
 def test_cli_prints_the_pinned_sha_for_bootstrap():

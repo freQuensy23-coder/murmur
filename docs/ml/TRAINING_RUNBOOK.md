@@ -31,8 +31,9 @@ Legend: **[V]** verified here (command, file or source given), **[I]** design ch
 2. **Stack** [V installed + run on CPU]: torch 2.15.0, transformers 5.23.0 (first release with native `lfm3`;
    absent in 5.22.0, so Liquid's cookbook uses 5.20.2 + `trust_remote_code`), peft 0.21.3, accelerate 1.16.0;
    GPU extras flash-linear-attention 0.6.0 (Qwen3.5 Gated DeltaNet kernels) and liger-kernel 0.8.5.
-   **torch 2.15.0 exists only as CUDA 13.2 wheels** (PyPI default; download.pytorch.org cu128 stops at 2.11.0)
-   [V index], so the pod needs a host driver >= 580. **No TRL, no Unsloth**: we render and mask ourselves (TRL
+   **torch 2.15.0 uses CUDA 13.2 on Linux PyPI**. Use an x86-64 host whose `nvidia-smi` advertises CUDA 13.2
+   or later (13.2 GA: Linux driver >= 595.45.04). CUDA 13.x minor-version compatibility on R580 does not
+   guarantee support for JIT-compiled kernels. The image's bundled CUDA/torch is separate. **No TRL, no Unsloth**: we render and mask ourselves (TRL
    would only re-implement that); Unsloth has no LFM3 module [V repo tree] and buys little at 0.8–2B on a 5090.
    Liquid's official LoRA recipe (cookbook `lfm3_sft_with_trl.ipynb`: r16, α32, dropout 0.05, q/k/v/o +
    in_proj/out_proj + w1/w2/w3, lr 2e-4, effective batch 16, cosine, warmup 5 %) [V notebook] is our anchor
@@ -89,13 +90,20 @@ Legend: **[V]** verified here (command, file or source given), **[I]** design ch
 
 The round-trip probe already ran and the final data exists (`.cache/ml/data/final`: train 3,000 / dev 300 /
 test 300, `docs/ml/DATA_CARD.md`), so the pod is used **once**, for training and evaluation only. Everything
-else (stock baselines, judge, CPU ship gates, cards, upload) runs on the dev server without a GPU. Every step
+else (stock baselines, optional judge, CPU ship gates, cards) runs on the dev server without a GPU. Every step
 is idempotent: after an SSH drop, a crash or a stop, re-run the same command.
 
 Before the pod (dev server, no GPU):
 
+- `python -m ml.train.verify_inputs ASSEMBLED SOURCE_SPLIT_DIR --holdout HOLDOUT` checks split
+  provenance and overlap without printing rows. Repeat `--holdout` to compare additional sets.
+- `python -m ml.train.verify_models --model REPO LOCAL_DIRECTORY` compares cached model files to the
+  configured public revisions. Weight shards not present locally are metadata-only evidence.
+- `ml/train/rehearse_cpu.sh` is an offline two-step smoke using caller-supplied local inputs and a new
+  private work directory. A passing CPU rehearsal does not qualify a GPU or model quality.
+
 ```
-cd ~/projects/murmur
+cd /path/to/murmur
 make -C ml/train test                                   # 105 unit tests (ml/eval + ml/train), ~30-60 s
 bash .cache/ml/train/podsim-real/simulate.sh            # optional: the whole sequence below on CPU with tiny
                                                         # models on the real data (section 4.2), ~25 min
@@ -105,18 +113,18 @@ Request the pod with `ml/pod/REQUEST.md` (name `alexm-training`, 1x RTX 5090, 80
 
 ```
 export POD=root@<host> POD_PORT=<port>
-export POD_KEY=~/projects/murmur/.cache/ml/train/pod-ssh/murmur_pod_ed25519
+export POD_KEY=/path/to/dedicated-ssh-key
 S="ssh -p $POD_PORT -i $POD_KEY -o StrictHostKeyChecking=accept-new $POD"
 
 # 1. code + data to the volume (rsync, < 1 min)
 WITH_DATA=1 DATA_DIR=.cache/ml/data/final bash ml/pod/push_code.sh
 
-# 2. bootstrap (driver >= 580 check, uv + Python, llama.cpp CPU + CUDA, venv, fla sm_120 kernel test,
+# 2. bootstrap (host CUDA >= 13.2 check, uv + Python, llama.cpp CPU + CUDA, venv, fla sm_120 kernel test,
 #    self-test, llama.cpp GPU kernel smoke test vs CPU (step 6b, section 3.2), 9.8 GB base weights at the pinned
 #    revisions; ~14 min; re-run after an SSH drop). Check: grep 'kernel smoke' /workspace/logs/pod.log
 #    must say PASS; otherwise section 3.2 (the matrix would refuse to start, rc 6). Exit 7 = the smoke MODEL could
 #    not be downloaded/converted (retried once; not a CUDA problem, no build tested): fix, re-run bootstrap.
-$S 'mkdir -p /workspace/logs && cd /workspace/murmur && bash ml/pod/bootstrap.sh 2>&1 | tee -a /workspace/logs/bootstrap.log | tail -20'
+$S 'bash -o pipefail -c "umask 077; mkdir -p /workspace/logs && cd /workspace/murmur && bash ml/pod/bootstrap.sh 2>&1 | tee -a /workspace/logs/bootstrap.log | tail -20"'
 
 # 3. the matrix + finalist evals, detached in tmux (~1.7-2.4 h; budget guard inside: the scripts end by
 #    4 h - 15 min at the latest, BUDGET_TAIL_S, so steps 4 and 5 always fit inside the 4 h cap)
@@ -125,20 +133,29 @@ $S "tmux new -d -s murmur 'cd /workspace/murmur && STAGES=\"bootstrap train eval
 #    poll every ~5 min (short, non-blocking; the 15 min tail covers one poll interval + sync + stop):
 $S 'tail -3 /workspace/logs/pod.log; cat /workspace/logs/anchor.jsonl /workspace/logs/runs.jsonl 2>/dev/null; grep EXIT /workspace/logs/run_all.log'
 
-# 4. when run_all.log says EXIT: pull reports, logs and the finalists' Q4_0 GGUFs (~3 GB, ~3 min)
-WITH_GGUF=1 bash ml/pod/sync_results.sh
+# 4. when run_all.log says EXIT: pull reports, logs, LoRA/DoRA adapters and verified finalist GGUFs
+WITH_GGUF=1 WITH_ADAPTERS=1 bash ml/pod/sync_results.sh
 ls .cache/ml/train/pod-results/runs/*/gguf/*-Q4_0.gguf && cat .cache/ml/train/pod-results/eval/vs_stock.md
 
-# 5. STOP the pod (Hermes); keep the volume until step 6 has read the GGUFs, then terminate
+# 5. STOP the pod; keep the volume until required artifacts are verified locally and termination is authorized
 
-# 6. dev server, no GPU: CPU ship-gate eval of each finalist (Q4_0, test + test.v2), judge (teacher, 2 concurrent),
-#    rescore, stock default.v1 on the dataset's test, cards, leaderboard, vs_stock.md (~1-3 h CPU)
-NO_SYNC=1 bash ml/pod/after_pod.sh
+# 6. local only: CPU ship-gate eval, stock default.v1, private cards, leaderboard and vs_stock.md
+bash ml/pod/after_pod.sh
 #    (EVAL_THREADS=2 when the host load average is > 20; STOCK_DEV=1 adds the stock models on the dataset's dev)
 
-# 7. owner picks; upload to a PRIVATE repo (teacher-output licence unconfirmed)
-tools/with-teacher .cache/ml/train/venv/bin/python -m ml.train.upload_hf --run .cache/ml/train/pod-results/runs/<run> --repo <owner>/<name>
+# 7. retain locally; do not publish, upload, or insert into the app catalog
 ```
+
+Use a dedicated mode-700 result directory. Set `WITH_FULL=1` at sync if a full-FT checkpoint is needed, and
+allow enough time to transfer it before stopping. Keep failed-run diagnostics via a separate metadata-only
+sync (without `WITH_GGUF=1`) if no finalists were selected. Use a fresh result directory for a new training
+session. `STEPS="judge cards"` is separate and opt-in: it sends evaluation text to the configured teacher;
+without approval keep the raw/guarded CPU metrics and mark the judge gates incomplete. Upload is not a step
+of this workflow, even to a private repo. Teacher-output terms for training and distribution remain unconfirmed.
+
+An optional outer watchdog is `MURMUR_WORKSPACE=/workspace MURMUR_CUTOFF_EPOCH=EPOCH bash ml/pod/start_bounded.sh`.
+Choose the workload cutoff before the rental deadline so retrieval and the provider-side stop still fit.
+The watchdog stops the shell workload, not the rental.
 
 Exit codes of `run_all.sh`: 0 done; 5 budget refused a stage/run (results so far are complete and synced as
 usual); 6 preflight (fla kernel, no CUDA llama.cpp build passed the kernel smoke test, or the smoke model was never

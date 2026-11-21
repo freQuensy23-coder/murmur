@@ -75,7 +75,7 @@ def test_rescore_and_judge_cli_on_synced_dir(tmp_path):
     ev.mkdir(parents=True)
     contract.write_jsonl(ev / "predictions.jsonl", [{"id": r["id"], "out": r["target"]} for r in rows])
     (ev / "report.json").write_text(json.dumps({"info": {
-        "model": "/workspace/runs/x/gguf/x-Q4_0.gguf", "data": ["/workspace/data/test.jsonl"], "split": None,
+        "model": "/workspace/runs/x/gguf/x-Q4_0.gguf", "data": [str(tmp_path / "unsynced" / "test.jsonl")], "split": None,
         "system": "finetuned", "template": "qwen3.5", "backend": "gguf", "label": "x Q4_0",
         "model_sha256": "ab" * 32, "model_bytes": 123}}))
     assert judge.main([str(ev), "--data-root", str(local)]) == 0

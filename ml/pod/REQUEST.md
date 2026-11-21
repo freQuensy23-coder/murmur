@@ -14,21 +14,18 @@ primary source on the date given, **[A]** assumed, re-measured from `/workspace/
 > 4 h at the latest. **Stop, do not terminate**, until we confirm the
 > results are on the dev server; then it may be terminated.
 >
-> * GPU: 1x RTX 5090 32 GB. Host driver **>= 580 (CUDA 13.x)**: our torch 2.15.0 exists only as CUDA 13.2
->   wheels. In the RunPod filter: CUDA version 13.0 or newer.
+> * GPU: 1x RTX 5090 32 GB. Use a host whose `nvidia-smi` advertises **CUDA 13.2 or newer** (CUDA 13.2 GA:
+>   Linux driver **>= 595.45.04**). The Linux PyPI torch 2.15.0 stack uses CUDA 13.2. CUDA 13.0 and minor-version
+>   compatibility alone are not a sufficient preflight for JIT-compiled kernels.
 > * Image: **`runpod/pytorch:2.1.0-cu1300-torch2130-ubuntu2404`** (CUDA 13.0, Ubuntu 24.04; tag listed on
 >   Docker Hub 2026-11-20). Any current Ubuntu 22.04/24.04 CUDA 13 image works: we install our own Python
 >   environment onto the volume, so the image's torch does not matter.
 > * Container disk: **30 GB** (apt packages, Triton/compile caches, temp files).
 > * Volume: **80 GB at `/workspace`** (code, data, Python env, base weights, runs, results).
 > * Ports: **SSH only** (TCP 22, exposed). No HTTP ports; nothing on the pod listens publicly.
-> * SSH: add the public key in **`~/projects/murmur/.cache/ml/train/pod-ssh/murmur_pod_ed25519.pub`**
->   on the dev server (dedicated key, comment `murmur-pod`:
->   `ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICToVEta4rbX5bWcYjWxRnT3KXilXBT4E3442wEaoTsH murmur-pod`),
->   and return `user@host` and the SSH port.
-> * Secrets: **none**. The base models are public; nothing is uploaded from the pod (the upload step runs
->   on the dev server afterwards, to **private** repos only, because the licence of the teacher outputs in
->   the training data is unconfirmed). No HF token, teacher or LLM API keys on the pod.
+> * SSH: install the dedicated public key supplied by the operator and return `user@host` and the SSH port.
+> * Secrets: **none**. The base models are public. Pull results to the private dev-server directory and keep
+>   them there; no dataset or fine-tune uploads. No HF token, teacher or LLM API keys on the pod.
 > * Please report the actual GPU-hours and cost at the stop.
 
 ## Sizing (disk from the real model sizes)
