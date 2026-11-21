@@ -60,7 +60,7 @@ class ModelsInteractionTest {
 
     private val catalog = CatalogParser.bundled()
     private val asr = catalog.model(catalog.defaults.asr.getValue("ru+en"))!!
-    private val llm = catalog.model(catalog.defaults.llm!!)!!
+    private val llm = catalog.models.first { it.llm != null && it.artifacts.any { a -> ComputeUnit.NPU in a.units } }
     private val otherLlm = catalog.models.first { it.kind == ModelKind.LLM && it.id != llm.id && !it.noRussian && it.artifacts.size > 1 }
 
     private inner class World(installed: Set<ArtifactId>, settings: Settings = Settings(), stepMs: Long = 150) {
@@ -145,7 +145,7 @@ class ModelsInteractionTest {
 
     @Test
     fun deletingTheModelInUseAsksThenSwitches() {
-        val w = World(allAsr + llm.artifacts.map { it.id } + otherLlm.artifacts.map { it.id })
+        val w = World(allAsr + llm.artifacts.map { it.id } + otherLlm.artifacts.map { it.id }, Settings(cleanup = CleanupChoice.Model(llm.id)))
         rule.setContent { MurmurTheme(darkTheme = false) { ModelDetail(w.deps, llm.id, onClose = {}) } }
         rule.onNodeWithText(s(R.string.detail_delete)).performClick()
         rule.onNodeWithText(s(R.string.delete_title, llm.displayName)).assertIsDisplayed()

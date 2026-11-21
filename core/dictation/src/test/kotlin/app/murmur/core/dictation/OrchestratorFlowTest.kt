@@ -148,12 +148,18 @@ class OrchestratorFlowTest {
     }
 
     @Test fun cleanupNoneMakesNoLlmCallNeverShowsPolishingAndRecordsSkippedNone() = runTest {
-        val h = harness { settings.edit { it.copy(cleanup = CleanupChoice.None) } }
+        val spoken = "So like I can sign in now thenks for your help"
+        val h = harness {
+            settings.edit { it.copy(cleanup = CleanupChoice.None) }
+            engines.asr.script = spoken
+            engines.llm.output = { "I can sign in now." }
+        }
         h.dictate()
         assertTrue(h.w.engines.llm.loadAttempts.isEmpty())
         assertTrue(h.w.engines.llm.requests.isEmpty())
         assertFalse(Polishing in h.bubbles)
-        assertEquals(raw, h.only().finalText)
+        assertEquals(spoken, h.only().finalText)
+        assertEquals(listOf(spoken), h.w.inserter.inserted)
         h.assertInserted("skipped:none")
     }
 

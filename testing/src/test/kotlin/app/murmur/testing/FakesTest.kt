@@ -106,7 +106,7 @@ class FakesTest {
     @Test
     fun benchmarkFakeEmitsStepsPerUsableUnit() = runTest {
         val catalog = app.murmur.core.catalog.CatalogParser.bundled()
-        val entry = catalog.model(catalog.defaults.llm!!)!!
+        val entry = catalog.models.first { it.llm != null && it.artifacts.any { a -> ComputeUnit.NPU in a.units && ComputeUnit.GPU in a.units } }
         val cands = ArtifactSelector.ranked(entry, FakeDeviceProfileRepository.FOLD7, UnitPreference.Auto).take(2)
         val events = FakeBenchmarkRunner().run(entry, cands).toList()
         val finished = events.last() as BenchProgress.Finished

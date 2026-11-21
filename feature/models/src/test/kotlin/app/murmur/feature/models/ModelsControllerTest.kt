@@ -104,8 +104,8 @@ class ModelsControllerTest {
     }
 
     @Test
-    fun deletingTheLastCleanupModelSwitchesToNone() = runTest(UnconfinedTestDispatcher()) {
-        val w = World(llm.artifacts.map { it.id }.toSet())
+    fun deletingTheLastCleanupModelInUseTurnsCleanupOff() = runTest(UnconfinedTestDispatcher()) {
+        val w = World(llm.artifacts.map { it.id }.toSet(), Settings(cleanup = CleanupChoice.Model(llm.id)))
         val c = controller(w)
         c.requestDelete(llm.id, Surface.LIST)
         c.confirmDelete()

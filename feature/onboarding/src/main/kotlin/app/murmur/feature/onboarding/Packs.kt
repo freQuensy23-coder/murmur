@@ -60,8 +60,8 @@ object PackPlanner {
         }
     }
 
-    /** The row selected when the step opens: the recommended pack, else the first. */
-    fun defaultChoice(options: List<PackOption>): PackOption? = options.firstOrNull { it.pack.recommended } ?: options.firstOrNull()
+    fun defaultChoice(options: List<PackOption>): PackOption? =
+        options.firstOrNull { it.llm == null && it.pack.recommended } ?: options.firstOrNull { it.llm == null }
 
     /**
      * The settings a chosen pack implies: its speech model, and its cleanup model (None for a speech-only pack), so

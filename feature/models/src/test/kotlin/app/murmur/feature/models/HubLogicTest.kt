@@ -206,18 +206,21 @@ class HubLogicTest {
     @Test
     fun noneSelectionAndCleanupModelOfRecord() {
         val llm = HubFixtures.defaultLlm
-        val inp = input(emulator, installed(llm.artifacts.map { it.id }))
+        val inp = input(emulator, installed(llm.artifacts.map { it.id }), settings = Settings(cleanup = CleanupChoice.Model(llm.id)))
         assertEquals(RowState.InUse, HubLogic.row(llm, inp).state)
         val none = input(emulator, installed(llm.artifacts.map { it.id }), settings = Settings(cleanup = CleanupChoice.None))
         assertTrue(HubLogic.list(HubTab.CLEANUP, none).noneSelected)
         assertEquals(RowState.Ready, HubLogic.row(llm, none).state)
         assertNull(HubLogic.cleanupModel(none))
+        val fresh = input(emulator, installed(llm.artifacts.map { it.id }))
+        assertTrue(HubLogic.list(HubTab.CLEANUP, fresh).noneSelected)
+        assertEquals(RowState.Ready, HubLogic.row(llm, fresh).state)
     }
 
     @Test
     fun selectedButNotDownloadedShowsTheDownloadPill() {
         val llm = HubFixtures.defaultLlm
-        val row = HubLogic.row(llm, input(emulator))
+        val row = HubLogic.row(llm, input(emulator, settings = Settings(cleanup = CleanupChoice.Model(llm.id))))
         assertTrue(row.selected)
         assertTrue(row.state is RowState.NotDownloaded)
         assertFalse(row.selectable)

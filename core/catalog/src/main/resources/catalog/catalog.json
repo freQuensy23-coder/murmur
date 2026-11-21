@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "catalogVersion": "2026-11-20.3",
+ "catalogVersion": "2026-11-22.1",
  "generated": "2026-11-20 by core/catalog/tools/build_catalog.py (network-verified)",
  "defaults": {
   "asr": {
@@ -8,7 +8,6 @@
    "en": "parakeet-tdt-0.6b-v3",
    "ru": "gigaam-v3-e2e-rnnt"
   },
-  "llm": "lfm3-1.7b",
   "vad": "silero-vad-v5",
   "ocrDet": "pp-ocrv6-tiny-det",
   "ocrRec": "pp-ocrv5-cyrillic-mobile-rec"
@@ -16,8 +15,7 @@
  "packs": [
   {
    "id": "recommended",
-   "title": "Recommended",
-   "recommended": true,
+   "title": "Speech + LFM3 cleanup",
    "description": "Parakeet speech + LFM3 cleanup + screen reading",
    "items": [
     "parakeet-tdt-0.6b-v3",
@@ -42,6 +40,7 @@
   {
    "id": "speech-only",
    "title": "Speech only",
+   "recommended": true,
    "description": "No cleanup",
    "items": [
     "parakeet-tdt-0.6b-v3",

@@ -30,7 +30,7 @@ class PacksTest {
         val onEmu = PackPlanner.options(catalog, emulator, Settings())
         assertEquals("every bundled pack is offered on both", catalog.packs.map { it.id }.toSet(), onFold.map { it.pack.id }.toSet())
         assertEquals(catalog.packs.map { it.id }.toSet(), onEmu.map { it.pack.id }.toSet())
-        assertEquals("recommended first", "recommended", onFold.first().pack.id)
+        assertEquals("recommended first", "speech-only", onFold.first().pack.id)
 
         val foldRec = onFold.first { it.pack.id == "recommended" }
         val emuRec = onEmu.first { it.pack.id == "recommended" }
@@ -84,12 +84,13 @@ class PacksTest {
         assertEquals(ModelId("parakeet-tdt-0.6b-v3"), light.asrModel)
         assertEquals(CleanupChoice.Model(ModelId("qwen3.5-0.8b")), light.cleanup)
         assertEquals(CleanupChoice.None, PackPlanner.applyChoice(Settings(), opts.first { it.pack.id == "speech-only" }).cleanup)
-        assertEquals("recommended", PackPlanner.defaultChoice(opts)?.pack?.id)
+        assertEquals("speech-only", PackPlanner.defaultChoice(opts)?.pack?.id)
+        assertNull(PackPlanner.defaultChoice(opts.filter { it.llm != null }))
     }
 
     @Test
     fun summaryTracksProgressPreparingAndStops() {
-        val rec = PackPlanner.options(catalog, emulator, Settings()).first { it.pack.recommended }
+        val rec = PackPlanner.options(catalog, emulator, Settings()).first { it.pack.id == "recommended" }
         val (asr, vad, det, rec2, llm) = rec.artifacts
         val total = rec.totalBytes
         val llmBytes = catalog.artifact(llm)!!.second.downloadBytes

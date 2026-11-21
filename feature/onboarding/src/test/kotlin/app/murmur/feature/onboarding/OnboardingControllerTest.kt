@@ -106,7 +106,7 @@ class OnboardingControllerTest {
         val opts = w.ctl.models.value.options
         assertNotNull(opts)
         opts!!
-        assertEquals("recommended", w.ctl.models.value.selectedId)
+        assertEquals("speech-only", w.ctl.models.value.selectedId)
         assertTrue(ArtifactId("parakeet-tdt-0.6b-v3@qnn-sm8750-20s") in opts.first { it.pack.recommended }.artifacts)
         assertEquals(181_000_000_000L, w.ctl.models.value.freeBytes)
         assertTrue(w.ctl.models.value.npu)
@@ -135,10 +135,25 @@ class OnboardingControllerTest {
     }
 
     @Test
+    fun acceptingThePreselectedPackDoesNotEnableOrDownloadCleanup() = runTest {
+        val w = World(backgroundScope)
+        toModels(w)
+        val selected = w.ctl.models.value.selected!!
+        assertEquals("speech-only", selected.pack.id)
+        assertNull(selected.llm)
+        w.ctl.download()
+        runCurrent()
+        assertEquals(CleanupChoice.None, w.settings.settings.value.cleanup)
+        assertEquals(selected.artifacts, w.downloads.requests)
+    }
+
+    @Test
     fun aStoppedDownloadShowsThePausedStepAndTryAgainResumes() = runTest {
         val w = World(backgroundScope)
         toModels(w)
-        val rec = w.ctl.models.value.options!!.first { it.pack.recommended }
+        w.ctl.select("recommended")
+        runCurrent()
+        val rec = w.ctl.models.value.selected!!
         val llm = rec.artifacts.last()
         w.downloads.stopAt[llm] = MurmurError.NoNetwork
         w.ctl.download()
@@ -190,6 +205,7 @@ class OnboardingControllerTest {
     @Test
     fun practiceReportsTheTimeFromStopToInsertAndTheModels() = runTest {
         val w = World(backgroundScope)
+        w.settings.update { it.copy(cleanup = CleanupChoice.Model(ModelId("lfm3-1.7b"))) }
         runCurrent()
         w.ctl.startPractice(object : InAppTarget {
             override val snapshot get() = error("not read here")
