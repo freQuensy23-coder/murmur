@@ -170,7 +170,7 @@ internal object FrameData {
     val asrReady: ModelEntry = asrList.first { it.id != asrInUse.id && it.selectableAsAsr && it.artifacts.size == 1 }
     val asrDownloading: ModelEntry = asrList.first { it.id != asrInUse.id && it.id != asrReady.id && it.selectableAsAsr && it.artifacts.size == 1 }
 
-    val llmInUse: ModelEntry = catalog.model(catalog.defaults.llm!!)!!
+    val llmInUse: ModelEntry = catalog.models.first { it.llm != null && it.artifacts.any { a -> ComputeUnit.NPU in a.units } }
     val llmReady: ModelEntry = catalog.models.first { it.kind == ModelKind.LLM && it.id != llmInUse.id && !it.noRussian && it.artifacts.size > 1 && it.languages.count > 100 }
     /** The bigger sibling that does not fit (models-storage). */
     val llmTooBig: ModelEntry = catalog.models.first { it.kind == ModelKind.LLM && it.family == llmReady.family && it.id != llmReady.id }
@@ -191,7 +191,7 @@ internal object FrameData {
     )
 
     fun input(states: Map<ArtifactId, InstallState>, storage: StorageInfo = StorageInfo(2_400_000_000, 181_000_000_000), records: List<BenchmarkRecord> = listOf(asrRecord, llmRecord)) =
-        HubInput(catalog, states, Settings(), fold7, UnitHealth.NONE, records.groupBy { it.artifactId }, storage)
+        HubInput(catalog, states, Settings(cleanup = app.murmur.core.store.CleanupChoice.Model(llmInUse.id)), fold7, UnitHealth.NONE, records.groupBy { it.artifactId }, storage)
 
     /** `models`: speech model in use (NPU), one downloaded, one downloading 89 of 144 MB at 12.3 MB/s. */
     val speech = input(

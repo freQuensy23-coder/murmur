@@ -76,15 +76,15 @@ class DefaultModelResolverTest {
     private fun ok(r: Outcome<ActiveModels>): ActiveModels = (r as? Outcome.Ok)?.value ?: error("expected Ok, got $r")
 
     private val everything = listOf(pNpu, pCpu, vad, det, rec, lfm, qwen)
+    private val withLfm = Settings(cleanup = CleanupChoice.Model(ModelId("lfm3-1.7b")))
 
     @Test
     fun emulatorProfileGetsCpuArtifactsAndNoAsrFallback() = runBlocking {
-        val m = ok(resolver(Installed(everything), FakeDeviceProfileRepository(FakeDeviceProfileRepository.EMULATOR)).resolve(Settings()))
+        val m = ok(resolver(Installed(everything), FakeDeviceProfileRepository(FakeDeviceProfileRepository.EMULATOR)).resolve(withLfm))
         assertEquals(pCpu, m.asr.artifactId)
         assertEquals(CPU, m.asr.unit)
         assertNull(m.asrFallback)
         assertEquals(listOf(CPU, CPU, CPU), listOf(m.vad!!.unit, m.ocrDet!!.unit, m.ocrRec!!.unit))
-        // LLM: the default LFM3 Q4_0 on CPU, no other unit on the emulator.
         assertEquals(lfm to CPU, m.llm!!.spec.artifactId to m.llm!!.spec.unit)
         assertNull(m.llm!!.fallback)
         assertEquals("0", m.llm!!.spec.options[LoadOptions.USE_MMAP])
@@ -104,7 +104,7 @@ class DefaultModelResolverTest {
 
     @Test
     fun llmFallbackIsTheSameArtifactOnGpu() = runBlocking {
-        val m = ok(resolver(Installed(everything)).resolve(Settings()))
+        val m = ok(resolver(Installed(everything)).resolve(withLfm))
         val llm = m.llm!!
         assertEquals(lfm to NPU, llm.spec.artifactId to llm.spec.unit)
         assertEquals(lfm to GPU, llm.fallback!!.artifactId to llm.fallback!!.unit)
@@ -128,7 +128,7 @@ class DefaultModelResolverTest {
         assertEquals(pCpu to CPU, m.asr.artifactId to m.asr.unit)
         assertNull(m.asrFallback)
         health.markFailed(lfm, NPU, "engine.load.llm")
-        val llm = ok(resolver(Installed(everything)).resolve(Settings())).llm!!
+        val llm = ok(resolver(Installed(everything)).resolve(withLfm)).llm!!
         assertEquals(GPU, llm.spec.unit)
         assertEquals(CPU, llm.fallback!!.unit)
     }
@@ -206,7 +206,7 @@ class DefaultModelResolverTest {
             override suspend fun ensure() = prober.ensure()
             override suspend fun reprobe() = prober.reprobe()
         }
-        val r = DefaultModelResolver(catalog, Installed(everything), device, health, bench).resolve(Settings())
+        val r = DefaultModelResolver(catalog, Installed(everything), device, health, bench).resolve(withLfm)
         val m = ok(r)
         assertEquals(pCpu to CPU, m.asr.artifactId to m.asr.unit)
         assertNull(m.asrFallback)
@@ -220,7 +220,8 @@ class DefaultModelResolverTest {
     fun cleanupChoicesNoneDefaultMissingAndChosen() = runBlocking {
         val all = resolver(Installed(everything))
         ok(all.resolve(Settings(cleanup = CleanupChoice.None))).let { assertNull(it.llm); assertEquals("none", it.llmUnavailable) }
-        ok(resolver(Installed(listOf(pCpu, vad))).resolve(Settings())).let { assertNull(it.llm); assertEquals("no_model", it.llmUnavailable) }
+        ok(all.resolve(Settings())).let { assertNull(it.llm); assertEquals("none", it.llmUnavailable) }
+        ok(resolver(Installed(listOf(pCpu, vad))).resolve(withLfm)).let { assertNull(it.llm); assertEquals("no_model", it.llmUnavailable) }
         ok(all.resolve(Settings(cleanup = CleanupChoice.Model(ModelId("lfm2.5-350m"))))).let { assertNull(it.llm); assertEquals("no_model", it.llmUnavailable) }
         ok(all.resolve(Settings(cleanup = CleanupChoice.Model(ModelId("murmur-cleanup-qwen3.5-0.8b"))))).let { assertEquals("no_model", it.llmUnavailable) }
         val q = ok(all.resolve(Settings(cleanup = CleanupChoice.Model(ModelId("qwen3.5-0.8b"))))).llm!!
@@ -261,7 +262,7 @@ class DefaultModelResolverTest {
         assertEquals(pNpu, ok(resolver(Installed(everything)).resolve(Settings())).asr.artifactId)
         // LLM speed comes from the newest record of the chosen (artifact, unit) (ADR-071).
         bench.save(BenchmarkRecord(lfm, NPU, "1", "fp", 3, BenchmarkResultData.Llm(40.9, 569.0, 120.0, 1300.0, 900, 1200, "NPU", 1.0)))
-        assertEquals(LlmSpeed(prefillTps = 569.0, decodeTps = 40.9), ok(resolver(Installed(everything)).resolve(Settings())).llm!!.speed)
+        assertEquals(LlmSpeed(prefillTps = 569.0, decodeTps = 40.9), ok(resolver(Installed(everything)).resolve(withLfm)).llm!!.speed)
         val scores = BenchScores.lookup(listOf(asr(CPU, 20.0, true, 1, pCpu), asr(CPU, 40.0, false, 2, pCpu)))
         assertNull(scores.score(pCpu, CPU))
         assertEquals(50.0, BenchScores.lookup(listOf(asr(NPU, 20.0, true, 1, pNpu))).score(pNpu, NPU)!!, 1e-9)

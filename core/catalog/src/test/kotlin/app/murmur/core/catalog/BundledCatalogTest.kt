@@ -116,7 +116,7 @@ class BundledCatalogTest {
 
     @Test
     fun failedUnitIsSkippedAndTheNextCandidateIsTheFallback() {
-        val lfm = catalog.model(catalog.defaults.llm!!)!!
+        val lfm = catalog.model(ModelId("lfm3-1.7b"))!!
         val ranked = ArtifactSelector.ranked(lfm, fold, UnitPreference.Auto)
         assertEquals(ComputeUnit.NPU, ranked.first().unit)
         val next = ArtifactSelector.fallbackAfter(ranked, ranked.first())!!

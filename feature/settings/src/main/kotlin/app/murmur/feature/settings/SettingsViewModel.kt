@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import app.murmur.core.catalog.Catalog
+import app.murmur.core.catalog.GgufTemplates
 import app.murmur.core.context.AppCategories
 import app.murmur.core.dictation.PermissionState
 import app.murmur.core.model.MurmurError
@@ -103,8 +104,8 @@ class SettingsViewModel(
     val events: StateFlow<SettingsEvent?> = _events.asStateFlow()
 
     private val profile: StateFlow<PromptProfile?> = combine(deps.settings.settings, deps.catalog.catalog) { s, c -> activeProfileName(s, c) }
-        .map { name -> name?.let { runCatching { deps.prompts.profile(it) }.getOrNull() } }
-        .stateIn(this.scope, SharingStarted.Eagerly, activeProfileName(deps.settings.settings.value, deps.catalog.catalog.value)?.let { runCatching { deps.prompts.profile(it) }.getOrNull() })
+        .map { name -> runCatching { deps.prompts.profile(name) }.getOrNull() }
+        .stateIn(this.scope, SharingStarted.Eagerly, runCatching { deps.prompts.profile(activeProfileName(deps.settings.settings.value, deps.catalog.catalog.value)) }.getOrNull())
 
     val ui: StateFlow<SettingsUi> = combine(
         deps.settings.settings, profile, installed, deps.permissions.state, deps.serviceConnected,
@@ -280,7 +281,6 @@ class SettingsViewModel(
         _category.value = c
     }
 
-    /** Opens the editor for the active profile; false when the catalog lists no cleanup model. */
     fun openPrompt(): Boolean {
         val p = profile.value ?: return false
         _promptEditor.value?.close()
@@ -402,16 +402,12 @@ class SettingsViewModel(
         fun shortens(from: Int, to: Int): Boolean = rank(to) < rank(from)
         private fun rank(days: Int): Int = if (days <= 0) 0 else days
 
-        /**
-         * The prompt profile the cleanup uses: the chosen model's, or the catalog default's (also while cleanup is
-         * None, so that the editor shows the prompt that applies once a model is used again).
-         */
-        fun activeProfileName(s: Settings, c: Catalog): String? {
+        fun activeProfileName(s: Settings, c: Catalog): String {
             val chosen = when (val choice = s.cleanup) {
                 is CleanupChoice.Model -> c.model(choice.id)?.llm?.promptProfile
                 CleanupChoice.Default, CleanupChoice.None -> null
             }
-            return chosen ?: c.defaults.llm?.let { c.model(it)?.llm?.promptProfile }
+            return chosen ?: c.defaults.llm?.let { c.model(it)?.llm?.promptProfile } ?: GgufTemplates.STOCK_PROFILE
         }
     }
 }

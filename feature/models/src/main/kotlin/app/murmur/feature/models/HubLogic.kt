@@ -409,7 +409,7 @@ object HubLogic {
         return HubList(
             tab = tab,
             rows = rows,
-            noneSelected = tab == HubTab.CLEANUP && input.settings.cleanup == CleanupChoice.None,
+            noneSelected = tab == HubTab.CLEANUP && cleanupModel(input) == null,
             support = support,
             storage = input.storage,
             storageProblem = storageProblem(tab, input),

@@ -32,7 +32,7 @@ object HubFixtures {
     /** A streaming preview-only model (ADR-047). */
     val previewOnly: ModelEntry get() = catalog.models.first { it.asr?.previewOnly == true && it.artifacts.any { a -> a.units == listOf(ComputeUnit.CPU) } }
 
-    val defaultLlm: ModelEntry get() = catalog.model(catalog.defaults.llm!!)!!
+    val defaultLlm: ModelEntry get() = catalog.models.first { it.llm != null && it.artifacts.any { a -> ComputeUnit.NPU in a.units } }
 
     /** Another available LLM with a Russian-capable card (catalog order). */
     val otherLlm: ModelEntry get() = catalog.models.first { it.kind == ModelKind.LLM && it.id != defaultLlm.id && it.status == app.murmur.core.catalog.Status.AVAILABLE && !it.noRussian }

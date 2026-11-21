@@ -43,7 +43,7 @@ class PromptEditorTest {
 
     private fun rowState(w: SettingsFixtures.World): PromptEditState {
         val s = w.settings.settings.value
-        val profile = w.prompts.profile(SettingsViewModel.activeProfileName(s, w.catalog.catalog.value)!!)
+        val profile = w.prompts.profile(SettingsViewModel.activeProfileName(s, w.catalog.catalog.value))
         return PromptEditRules.editState(profile, s.promptOverride?.baseProfile)
     }
 

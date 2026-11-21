@@ -255,19 +255,18 @@ class SettingsViewModelTest {
         assertEquals("finetuned.v1", state().profile.name)
         assertFalse(state().editable)
         assertEquals(PromptEditState.NOT_EDITABLE, state().state)
-        // Cleanup None: the prompt of the catalog default (what applies when a model is used again).
         w.settings.edit { it.copy(cleanup = CleanupChoice.None) }
         assertEquals("default.v1", state().profile.name)
     }
 
     @Test
-    fun activeProfileComesFromTheChosenModelElseTheCatalogDefault() = runTest {
+    fun promptEditorKeepsTheStockProfileWithoutAnActiveModel() = runTest {
         val catalog = app.murmur.testing.FakeCatalogRepository().catalog.value
         assertEquals("default.v1", SettingsViewModel.activeProfileName(Settings(), catalog))
         assertEquals("finetuned.v1", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.Model(ModelId("murmur-cleanup-lfm3-1.7b"))), catalog))
         assertEquals("default.v1", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.Model(ModelId("qwen3.5-0.8b"))), catalog))
-        assertEquals("unknown model -> catalog default", "default.v1", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.Model(ModelId("gone"))), catalog))
-        assertNull(SettingsViewModel.activeProfileName(Settings(), catalog.copy(defaults = catalog.defaults.copy(llm = null))))
+        assertEquals("default.v1", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.Model(ModelId("gone"))), catalog))
+        assertEquals("default.v1", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.None), catalog))
     }
 
     @Test

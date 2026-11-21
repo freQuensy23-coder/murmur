@@ -30,7 +30,7 @@ CACHE = REPO / ".cache/spikes/architect/catalog-files"
 ASR = json.loads((REPO / "docs/research/asr-catalog.json").read_text(encoding="utf-8"))
 LLM = json.loads((REPO / "docs/research/llm-catalog.json").read_text(encoding="utf-8"))
 OFFLINE = "--offline" in sys.argv
-CATALOG_VERSION = "2026-11-20.3"
+CATALOG_VERSION = "2026-11-22.1"
 
 UA = {"User-Agent": "murmur-catalog-builder/1"}
 
@@ -530,17 +530,16 @@ def main() -> int:
                         if NPU_CTX_PENDING else ""),
         "defaults": {
             "asr": {"ru+en": "parakeet-tdt-0.6b-v3", "en": "parakeet-tdt-0.6b-v3", "ru": "gigaam-v3-e2e-rnnt"},
-            "llm": LLM.get("default_model_id", "lfm3-1.7b"),
             "vad": "silero-vad-v5", "ocrDet": "pp-ocrv6-tiny-det", "ocrRec": "pp-ocrv5-cyrillic-mobile-rec",
         },
         "packs": [
-            {"id": "recommended", "title": "Recommended", "recommended": True,
+            {"id": "recommended", "title": "Speech + LFM3 cleanup",
              "description": "Parakeet speech + LFM3 cleanup + screen reading",
              "items": ["parakeet-tdt-0.6b-v3", "silero-vad-v5", "pp-ocrv6-tiny-det", "pp-ocrv5-cyrillic-mobile-rec", "lfm3-1.7b"]},
             {"id": "light", "title": "Lighter and faster",
              "description": "Parakeet speech + Qwen3.5 0.8B cleanup + screen reading",
              "items": ["parakeet-tdt-0.6b-v3", "silero-vad-v5", "pp-ocrv6-tiny-det", "pp-ocrv5-cyrillic-mobile-rec", "qwen3.5-0.8b"]},
-            {"id": "speech-only", "title": "Speech only", "description": "No cleanup",
+            {"id": "speech-only", "title": "Speech only", "recommended": True, "description": "No cleanup",
              "items": ["parakeet-tdt-0.6b-v3", "silero-vad-v5"]},
         ],
         "models": models,
