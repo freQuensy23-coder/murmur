@@ -523,6 +523,13 @@ def regen_goldens_v2() -> None:
                 (HERE / "examples" / f"{stem}.{tpl}.{prof}.txt").write_text(
                     render_prompt(prof, g["context"], g["transcript"], tpl), encoding="utf-8")
 
+    for inp in sorted((HERE / "examples" / "finetuned").glob("*.input.json")):
+        g = json.loads(inp.read_text(encoding="utf-8"))
+        stem = inp.name.removesuffix(".input.json")
+        for tpl in ("qwen3.5", "lfm3"):
+            inp.with_name(f"{stem}.{tpl}.finetuned.v2.txt").write_text(
+                render_prompt("finetuned.v2", g["context"], g["transcript"], tpl), encoding="utf-8")
+
 
 GOLDEN_V2_PROFILES = ("default.v1", "default.v4")  # shipped stock profile first (PROMPT_EVAL.md §0), v4 kept selectable
 

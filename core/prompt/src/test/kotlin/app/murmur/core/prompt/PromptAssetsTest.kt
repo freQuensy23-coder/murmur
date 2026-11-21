@@ -18,7 +18,7 @@ class PromptAssetsTest {
     fun packagedPromptsAreByteIdenticalToTheRepo() {
         // D8: what the APK ships is exactly prompts/ (no hand copies).
         for (rel in listOf("system/default.v1.md", "profiles/default.v1.json", "system/default.v4.md", "profiles/default.v4.json",
-                "shots/default.v4.jsonl", "tones/tones.v1.json")) {
+                "shots/default.v4.jsonl", "system/finetuned.v2.md", "tones/tones.v1.json")) {
             assertEquals(rel, File(root, "prompts/$rel").readText(), assets.text(rel))
         }
     }
@@ -54,25 +54,43 @@ class PromptAssetsTest {
         assertTrue(!PromptEditRules.overrideApplies(assets.profile(STOCK), "default.v4"))
         assertTrue(!PromptEditRules.overrideApplies(assets.profile("default.v4s"), "default.v4"))
         assertTrue(!PromptEditRules.overrideApplies(assets.profile("finetuned.v1"), "finetuned.v1"))
+        val fineTuneV2 = assets.profile("finetuned.v2")
+        assertTrue(!PromptEditRules.editable(fineTuneV2))
+        assertTrue(!PromptEditRules.overrideApplies(fineTuneV2, STOCK))
+        assertTrue(!PromptEditRules.overrideApplies(fineTuneV2, fineTuneV2.name))
         assertTrue(!PromptEditRules.overrideApplies(assets.profile(STOCK), null))
         assertEquals("finetuned.v1", assets.profile("finetuned.v1").system)
     }
 
     @Test
     fun goldenCtxV2Prompts() {
+        checkCtxV2Goldens(File(root, "prompts/examples"), listOf(STOCK, "default.v4"))
+    }
+
+    @Test
+    fun goldenFineTunedCtxV2Prompts() {
+        checkCtxV2Goldens(File(root, "prompts/examples/finetuned"), listOf("finetuned.v2"))
+    }
+
+    private fun checkCtxV2Goldens(dir: File, profiles: List<String>) {
         val r = RenderPyPort(assets)
-        val dir = File(root, "prompts/examples")
         val inputs = dir.listFiles { f -> f.name.startsWith("ctxv2_") && f.name.endsWith(".input.json") }!!
         assertEquals("both ctxv2 examples", 2, inputs.size)
         for (inp in inputs) {
             val stem = inp.name.removeSuffix(".input.json")
-            // render.GOLDEN_V2_PROFILES: the stock default.v1 (ADR-085) and the selectable default.v4.
-            for (profile in listOf(STOCK, "default.v4")) for (tpl in listOf("qwen3.5", "lfm3")) {
+            for (profile in profiles) for (tpl in listOf("qwen3.5", "lfm3")) {
                 val expected = File(dir, "$stem.$tpl.$profile.txt").readText()
                 val g = kotlinx.serialization.json.Json.parseToJsonElement(inp.readText()) as kotlinx.serialization.json.JsonObject
                 val ctx = app.murmur.core.context.CtxV2.json.decodeFromJsonElement(app.murmur.core.context.CtxV2.serializer(), g.getValue("context"))
                 val transcript = (g.getValue("transcript") as kotlinx.serialization.json.JsonPrimitive).content
-                Goldens.assertSame("$stem/$tpl/$profile", expected, r.render(RenderInput(assets.profile(profile), tpl, ctx, transcript)).full)
+                val input = RenderInput(assets.profile(profile), tpl, ctx, transcript)
+                val rendered = r.render(input)
+                val label = "$stem/$tpl/$profile"
+                val userMarker = "<|im_start|>user\n"
+                val expectedPrefix = expected.substring(0, expected.lastIndexOf(userMarker) + userMarker.length)
+                Goldens.assertSame(label, expected, rendered.full)
+                Goldens.assertSame("$label prefix", expectedPrefix, rendered.prefix)
+                Goldens.assertSame("$label cached prefix", expectedPrefix, r.cachePrefix(input.profile, tpl, null, null))
             }
         }
     }

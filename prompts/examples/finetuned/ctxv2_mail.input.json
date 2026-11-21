@@ -1,0 +1,57 @@
+{
+  "context": {
+    "v": 2,
+    "app": {
+      "package": "example.fixture",
+      "label": "Fixture",
+      "category": "email"
+    },
+    "field": {
+      "kind": "email_body",
+      "hint": "Draft",
+      "before_cursor": "",
+      "box": [
+        20,
+        200,
+        320,
+        235
+      ]
+    },
+    "screen": {
+      "size": [
+        350,
+        260
+      ],
+      "lines": [
+        {
+          "text": "Sandbox release notes",
+          "conf": 1.0,
+          "box": [
+            20,
+            20,
+            305,
+            45
+          ]
+        },
+        {
+          "text": "Maple module",
+          "conf": 1.0,
+          "box": [
+            20,
+            50,
+            305,
+            75
+          ]
+        }
+      ]
+    },
+    "language": {
+      "asr": "ru"
+    },
+    "privacy": {
+      "level": "full",
+      "reason": null
+    }
+  },
+  "transcript": "проверь мейпл модуль перед тестом"
+}

@@ -239,6 +239,7 @@ internal class EngineKeeper(
         )
         val info = if (loadedNow) warm.info else warm.info.copy(loadMs = 0)
         if (warm.prefixKey == key) return Step.Loaded(LlmLoaded(spec, info, warm.prefixTokens, fellBack = false))
+        warmLlm = warm.copy(prefixKey = null, prefixTokens = 0)
         return when (val p = engines.llm.setPrefix(PrefixSpec(prefix, key))) {
             is Outcome.Err -> Step.PrefixFailed(p.error)
             is Outcome.Ok -> {
