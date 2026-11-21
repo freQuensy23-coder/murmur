@@ -1,97 +1,34 @@
 # Murmur
 
-On-device voice dictation for Android, built for the Galaxy Z Fold7.
+[По-русски](README.ru.md) · [Download the test APK](https://github.com/freQuensy23-coder/murmur/releases/download/test-56e9d4b/murmur-56e9d4b-speech-first.apk) · [Release notes](https://github.com/freQuensy23-coder/murmur/releases/tag/test-56e9d4b)
 
-Tap a floating bubble, speak, tap again. Murmur transcribes the speech, cleans it up
-(punctuation, filler words, self-corrections, the tone of the app you are in, words it reads
-from the screen) and types the result into the field you were in. Nothing leaves the phone:
-no network traffic, no audio or dictated text in the system log.
+![Murmur: on-device dictation for Android 14 and later](docs/readme/cover.png)
 
-## Pipeline
+**Leave the cursor where you want the words.** Tap Murmur’s floating bubble, dictate a reply, then tap again. Your words appear in the same field. Keep your usual keyboard. Once the models are downloaded, dictation works on the phone without an internet connection.
 
-1. **Audio** — the bubble records, silence detection cuts segments in pauses.
-2. **Speech** — a local ASR engine decodes each closed segment (arm64 CPU or NPU).
-3. **Context** — the accessibility tree of the target app, plus OCR of the screen when the
-   tree is thin, assembled under a privacy level (full / app only / terms only / none).
-4. **Cleanup** — a small language model rewrites the transcript with the context, following a
-   prompt profile (default.v1, default.v4, finetuned.v1).
-5. **Insertion** — text into the focused field through the accessibility service, with a
-   clipboard fallback when the app refuses.
+![Three illustrated stages in a chat: a recording bubble, a transcribing indicator, then a message in the composer](docs/readme/bubble-sequence.webp)
+*How the bubble works, illustrated with the project’s chat prototype.*
 
-Each stage runs in its own process and unit, with a memory and time budget; a failed unit falls
-back instead of blocking the dictation.
+## Try it on your phone
 
-## Features
+Install the [debug-signed test build](https://github.com/freQuensy23-coder/murmur/releases/tag/test-56e9d4b) on **Android 14 or newer**. Follow the setup prompts for the microphone, floating bubble and accessibility service. Choose **Speech only**, download the model pack on Wi-Fi, then try a sentence in the practice field before switching to a messaging app.
 
-- Floating bubble over any app, fold-aware layouts for cover and inner screens
-- History with audio playback and Retry, Dashboard with dictation and latency numbers
-- Model hub: download, benchmark, and choose speech, cleanup, VAD and OCR models
-- Settings: prompt editor, tone per app, privacy level, debug diagnostics
-- Onboarding that walks through overlay, accessibility and battery permissions
+By default Murmur inserts the speech recognizer’s transcript. You can enable local model cleanup to add punctuation or use words visible on screen. **Cleanup is experimental:** it can change or omit spoken words. Screen context and dictated audio are processed on the device.
 
-## Models
+## Inside the app
 
-Everything runs locally and models are downloaded on first use from the catalog
-(`core/catalog/src/main/resources/catalog/catalog.json`).
+![Cropped Android emulator screenshots: Welcome explains the bubble, Practice shows an inserted test sentence, and Models lists speech engines](docs/readme/gallery.webp)
+*Android emulator captures with sample data. Open a full screen: [Welcome](docs/readme/welcome.webp) · [Practice](docs/readme/practice.webp) · [Models](docs/readme/models.webp).*
 
-- **Speech** — Parakeet TDT 0.6B, GigaAM v3, Whisper, Nemotron 3.5, T-one, Qwen3-ASR
-- **Cleanup** — Qwen3.5 0.8B / 2B, Qwen3 0.6B / 1.7B, LFM3 1.7B, LFM2.5 350M / 1.2B / 2.6B
-- **Vision** — PP-OCRv6 detector, PP-OCRv5 Cyrillic recognizer; Silero VAD
+**History** lets you replay a saved recording and retry a dictation. **Models** lets you download engines and compare their speed on your own phone. **Settings** is where you choose what screen context cleanup can use.
 
-Fine-tuned cleanup models live at **[huggingface.co/satoshiNakomoroReal/murmur-cleanup](https://huggingface.co/satoshiNakomoroReal/murmur-cleanup)**.
-Training data and pipeline are in `ml/`; no weights are published yet.
+## What has actually run on a phone?
 
-## Status
+On a **Galaxy S25 Ultra**, Murmur transcribed a prerecorded Russian sentence with no word errors, read nine words from the screen, and inserted the result into another app’s test field with Samsung Keyboard. With optional cleanup on, the field updated **815 ms after stop** in that run. The test used software start/stop and prerecorded audio; it does not establish microphone quality, bubble usability or Fold7 behavior.
 
-Builds and passes 1,056 JVM tests; verified end to end on an Android emulator with the real
-speech and cleanup models on CPU (1.0–1.4 s from end of speech to inserted text). Not yet
-verified on the phone: NPU paths, the real microphone, One UI behaviour, real apps, battery.
+![Standalone screen recognition on Galaxy S25 Ultra. Detection: CPU 34.40 ms, NPU 2.79 ms. Recognition: CPU 12.41 ms, NPU 3.15 ms.](docs/readme/ocr-times.png)
+*Separate OCR benchmark, not whole-dictation latency: median of seven warm runs per engine on the same input. The Qualcomm accelerator ran without CPU fallback.*
 
-`docs/STATUS.md` has the full picture, `docs/DEVICE_CHECKLIST.md` the on-device steps,
-`docs/DECISIONS.md` the 93 architecture decision records.
+[How the pipeline works](docs/ARCHITECTURE.md) · [Build from source](docs/dev/BUILD.md) · [Model catalog](core/catalog/src/main/resources/catalog/catalog.json) · [Physical-device checklist](docs/DEVICE_CHECKLIST.md)
 
-## Build
-
-Requirements: JDK 21, Android SDK 37.2 (`compileSdk`), build-tools 37.0.0.
-
-```bash
-export ANDROID_HOME=$HOME/.local/share/android-sdk
-./gradlew assembleDebug testDebugUnitTest
-```
-
-The speech and correction engines are native libraries built from source and not committed, so
-an APK made without them installs but cannot dictate:
-
-```bash
-JOBS=$(nproc) native/sherpa/build-android.sh all
-NO_HEAVY=1 JOBS=$(nproc) native/llama/build_android.sh cpu-arm64 cpu-x86_64
-./gradlew assembleDebug          # picks up .cache/native/jniLibs
-tools/e2e/check_apk_engines.sh app/build/outputs/apk/debug/app-debug.apk
-```
-
-CI does the same before it builds (`native-libs` job, cached) and fails the build when an APK
-is missing an engine library. The public APKs carry the CPU engines only. The complete device
-build adds the Qualcomm NPU paths and is published as separate `*-npu-*` release assets, built
-locally because the Qualcomm toolchains need a licence-accepting account (ADR-048):
-
-```bash
-tools/device/build_full_apk.sh        # NPU + QNN libraries, verified, into dist/
-```
-
-Model weights are never committed.
-
-## Docs
-
-`docs/BRIEF.md` (product and scope), `docs/ARCHITECTURE.md`, `docs/DESIGN.md` in
-`docs/design/`, `docs/ml/` (data card, training runbook, prompt evaluation).
-
-## Privacy
-
-Audio, transcripts, screen context and history stay in app-private storage. The app has no
-analytics and no server component; `core/benchmark` and the tools under `tools/` are the only
-things that write files, and only locally.
-
-## License
-
-Apache-2.0 (see `LICENSE`). Third-party components are listed in `THIRD_PARTY_NOTICES.md`;
-models downloaded by the app keep their own licenses, listed per entry in the catalog.
+[Apache-2.0](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md). Downloadable models retain their own licenses.
