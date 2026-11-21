@@ -70,6 +70,10 @@ android {
         }
     }
 
+    providers.gradleProperty("murmur.streamAssets").orNull?.let {
+        sourceSets.getByName("androidTest").assets.srcDir(file(it))
+    }
+
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
