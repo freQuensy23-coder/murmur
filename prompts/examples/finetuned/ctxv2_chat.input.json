@@ -1,0 +1,57 @@
+{
+  "context": {
+    "v": 2,
+    "app": {
+      "package": "example.fixture",
+      "label": "Fixture",
+      "category": "messenger"
+    },
+    "field": {
+      "kind": "message",
+      "hint": "Draft",
+      "before_cursor": "",
+      "box": [
+        20,
+        200,
+        320,
+        235
+      ]
+    },
+    "screen": {
+      "size": [
+        350,
+        260
+      ],
+      "lines": [
+        {
+          "text": "Тестовая комната",
+          "conf": 1.0,
+          "box": [
+            20,
+            20,
+            305,
+            45
+          ]
+        },
+        {
+          "text": "Синий куб",
+          "conf": 1.0,
+          "box": [
+            20,
+            50,
+            305,
+            75
+          ]
+        }
+      ]
+    },
+    "language": {
+      "asr": "ru"
+    },
+    "privacy": {
+      "level": "full",
+      "reason": null
+    }
+  },
+  "transcript": "положи синий куб на полку"
+}

@@ -68,6 +68,8 @@ class HfCustomModelResolverTest {
         assertEquals("finetuned.v1", ok(resolver.resolve(CustomModelRequest(ModelKind.LLM, qwenRepo))).llm!!.promptProfile)
         serveQwen(GgufWriter.qwen35(name = "murmur-cleanup-qwen3.5-0.8b").build())
         assertEquals("finetuned.v1", ok(resolver.resolve(CustomModelRequest(ModelKind.LLM, qwenRepo))).llm!!.promptProfile)
+        serveQwen(GgufWriter.qwen35(name = "murmur-cleanup-qwen3.5-0.8b", profile = "finetuned.v2").build())
+        assertEquals("finetuned.v2", ok(resolver.resolve(CustomModelRequest(ModelKind.LLM, qwenRepo))).llm!!.promptProfile)
         assertEquals("default.v4s", ok(resolver.resolve(CustomModelRequest(ModelKind.LLM, qwenRepo, promptProfile = "default.v4s"))).llm!!.promptProfile)
         // A small header is read in one request.
         assertEquals(listOf("bytes=0-4194303"), net.requests.filter { it.url == ggufUrl }.map { it.headers["Range"] }.distinct())
