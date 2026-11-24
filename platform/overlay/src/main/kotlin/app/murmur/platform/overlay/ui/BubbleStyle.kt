@@ -50,6 +50,39 @@ internal object BubbleType {
 }
 
 /**
+ * Pre-configured shadow paints for the bubble's e2 shadow. Keeping the paints outside per-frame size caches avoids
+ * reallocating [android.graphics.Paint] objects while the pill morphs.
+ */
+internal class BubbleShadowPaints(dark: Boolean, reachPx: Float) {
+    private val p1: android.graphics.Paint
+    private val p2: android.graphics.Paint
+
+    init {
+        val fillColor = Color.Black.copy(alpha = 0.004f).toArgb()
+        val a1 = Color.Black.copy(alpha = if (dark) 0.40f else 0.08f).toArgb()
+        val a2 = Color.Black.copy(alpha = if (dark) 0.45f else 0.10f).toArgb()
+        p1 = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = fillColor
+            setShadowLayer(reachPx * 0.50f, 0f, reachPx * 0.15f, a1)
+        }
+        p2 = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = fillColor
+            setShadowLayer(reachPx * 0.65f, 0f, reachPx * 0.35f, a2)
+        }
+    }
+
+    fun drawRoundRect(c: android.graphics.Canvas, left: Float, top: Float, right: Float, bottom: Float, radius: Float) {
+        c.drawRoundRect(left, top, right, bottom, radius, radius, p1)
+        c.drawRoundRect(left, top, right, bottom, radius, radius, p2)
+    }
+
+    fun drawOutline(c: android.graphics.Canvas, outline: Outline, size: Size) {
+        drawOutlineWith(c, outline, size, p1)
+        drawOutlineWith(c, outline, size, p2)
+    }
+}
+
+/**
  * The bubble's e2 shadow, drawn inside its window's transparent band: a window clips everything outside it, so an
  * elevation shadow would end in a hard edge. tokens.json e2 is (y 2, blur 6, 8%) + (y 8, blur 24, 10%); both layers
  * are compressed so that offset + blur stays within [reachPx] (the 6 dp band), keeping their alphas. Dark theme uses
@@ -58,27 +91,15 @@ internal object BubbleType {
 internal fun Modifier.bubbleShadow(shape: Shape, dark: Boolean, reachPx: Float, enabled: Boolean = true): Modifier =
     if (!enabled || reachPx <= 0f) this else drawWithCache {
         val outline = shape.createOutline(size, layoutDirection, this)
-        val fillColor = Color.Black.copy(alpha = 0.004f).toArgb()
-        val a1 = Color.Black.copy(alpha = if (dark) 0.40f else 0.08f).toArgb()
-        val a2 = Color.Black.copy(alpha = if (dark) 0.45f else 0.10f).toArgb()
-        val p1 = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = fillColor
-            setShadowLayer(reachPx * 0.50f, 0f, reachPx * 0.15f, a1)
-        }
-        val p2 = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-            color = fillColor
-            setShadowLayer(reachPx * 0.65f, 0f, reachPx * 0.35f, a2)
-        }
+        val paints = BubbleShadowPaints(dark, reachPx)
         onDrawBehind {
             drawIntoCanvas { canvas ->
-                val nc = canvas.nativeCanvas
-                drawOutline(nc, outline, size, p1)
-                drawOutline(nc, outline, size, p2)
+                paints.drawOutline(canvas.nativeCanvas, outline, size)
             }
         }
     }
 
-private fun drawOutline(c: android.graphics.Canvas, outline: Outline, size: Size, paint: android.graphics.Paint) {
+private fun drawOutlineWith(c: android.graphics.Canvas, outline: Outline, size: Size, paint: android.graphics.Paint) {
     when (outline) {
         is Outline.Rectangle -> c.drawRect(0f, 0f, size.width, size.height, paint)
         is Outline.Rounded -> {
