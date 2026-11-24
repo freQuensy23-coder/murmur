@@ -317,7 +317,7 @@ class DefaultModelResolverTest {
         assertEquals("zipformer2", on.hebrewAsr!!.options["model_type"])
         assertTrue(on.hebrewAsrTraits!!.streaming)
         // Legacy "iw" code normalizes to "he".
-        val legacy = ok(resolver(Installed(everything + heArt)).resolve(Settings(languages = listOf("ru", "iw"))))
+        val legacy = ok(resolver(Installed(everything + heArt)).resolve(Settings(languages = listOf("ru", "en", "iw"))))
         assertEquals(heArt, legacy.hebrewAsr!!.artifactId)
     }
 

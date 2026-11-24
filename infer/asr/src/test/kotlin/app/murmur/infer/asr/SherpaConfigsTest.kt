@@ -95,8 +95,8 @@ class SherpaConfigsTest {
         val he = SherpaConfigs.online(spec("zipformer2-66m-streaming-he@onnx-int8"), null)
         assertEquals("cpu", he.modelConfig.provider)
         assertEquals("zipformer2", he.modelConfig.modelType)
-        assertEquals("/m/zipformer2-66m-streaming-he@onnx-int8/sherpa-onnx/encoder.int8.onnx", he.modelConfig.transducer.encoder)
-        assertEquals("/m/zipformer2-66m-streaming-he@onnx-int8/sherpa-onnx/tokens.txt", he.modelConfig.tokens)
+        assertEquals("/m/zipformer2-66m-streaming-he@onnx-int8/encoder.int8.onnx", he.modelConfig.transducer.encoder)
+        assertEquals("/m/zipformer2-66m-streaming-he@onnx-int8/tokens.txt", he.modelConfig.tokens)
         assertFalse(he.enableEndpoint)
     }
 
