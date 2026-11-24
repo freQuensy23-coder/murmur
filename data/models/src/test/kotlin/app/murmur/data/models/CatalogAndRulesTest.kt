@@ -98,7 +98,7 @@ class ModelDownloadRulesTest {
         installed.download(ArtifactId("silero-vad-v5@onnx"), true)   // already installed
         val queued = rules.downloadPack("recommended", Settings())
         assertEquals(
-            listOf("parakeet-tdt-0.6b-v3@onnx-int8", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-cyrillic-mobile-rec@onnx", "lfm3-1.7b@q4_0-qad"),
+            listOf("parakeet-tdt-0.6b-v3@onnx-int8", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-cyrillic-mobile-rec@onnx", "murmur-cleanup-qwen3.5-2b@q4_0"),
             queued.map { it.artifact.id.value },
         )
         assertTrue(queued.all { installed.state(it.artifact.id).first() is InstallState.Installed })
