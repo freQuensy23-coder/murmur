@@ -47,6 +47,7 @@ import app.murmur.core.store.SettingsRepository
 import app.murmur.platform.overlay.ui.BubbleActions
 import app.murmur.platform.overlay.ui.BubbleUi
 import app.murmur.platform.overlay.ui.BubbleWindowContent
+import app.murmur.platform.overlay.ui.CancelButton
 import app.murmur.platform.overlay.ui.DragLayer
 import app.murmur.platform.overlay.ui.DragScene
 import app.murmur.platform.overlay.ui.HiddenSnackbar
@@ -121,6 +122,7 @@ class OverlayHost(
     private var ui by mutableStateOf(BubbleUi(BubbleVisual.Ready, shown = false, rightEdge = true,
         metrics = BubbleMetrics.of(BubbleSize.STANDARD), reducedMotion = false, talkBack = false))
     private var dark by mutableStateOf(isDark(ctx.resources.configuration))
+    private var cancelShown by mutableStateOf(false)
     private var dragScene by mutableStateOf<DragScene?>(null)
     private var snackText by mutableStateOf<String?>(null)
 
@@ -145,6 +147,9 @@ class OverlayHost(
     private val bubbleActions = Actions()
     private val bubbleLp = overlayParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, title = "MurmurBubble")
     private var lastAppliedBubbleLp: AppliedLp? = null
+    private var cancelView: View? = null
+    private val cancelLp = overlayParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, title = "MurmurBubbleCancel")
+    private var lastAppliedCancelLp: AppliedLp? = null
     private var dragView: View? = null
     private var snackView: View? = null
     private val dismissSnack = Runnable { removeSnack() }
@@ -224,6 +229,8 @@ class OverlayHost(
         main.removeCallbacks(deadlineRunnable); main.removeCallbacks(holdTick); main.removeCallbacks(showTarget); main.removeCallbacks(fadedOut)
         recognizer.cancel()
         removeDragLayer(); removeSnack()
+        cancelView?.let { runCatching { wm.removeViewImmediate(it) } }; cancelView = null
+        lastAppliedCancelLp = null
         runCatching { wm.removeViewImmediate(root) }
         lastAppliedBubbleLp = null
         BubbleViews.unregister(root)
@@ -312,6 +319,7 @@ class OverlayHost(
         // A running gesture keeps its touch stream even when the window turns untouchable.
         setTouchable(bubbleLp, shown && !settling)
         positionBubble(lastShownVisual)
+        updateCancel(visual, dragging)
         if (controller.drag != null) updateDragScene()
 
         main.removeCallbacks(deadlineRunnable)
@@ -344,6 +352,58 @@ class OverlayHost(
         if (next != lastAppliedBubbleLp && update(root, bubbleLp)) {
             lastAppliedBubbleLp = next
         }
+    }
+
+    private fun updateCancel(visual: BubbleVisual, dragging: Boolean) {
+        val listening = visual is BubbleVisual.Active && (visual.state as? DictationBubble.Listening)?.hold == false && !dragging
+        val top = circleTop
+        if (listening && cancelView == null && top != null) {
+            setTouchable(cancelLp, true)
+            positionCancel(top)
+            cancelView = composeView { CancelButton(dark, cancelShown) { controller.onTap(TouchRegion.CANCEL) } }.also { v ->
+                v.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                    override fun onViewAttachedToWindow(view: View) {
+                        if (attached) applyCancelLayout(view)
+                    }
+                    override fun onViewDetachedFromWindow(view: View) {
+                        lastAppliedCancelLp = null
+                    }
+                })
+                runCatching { wm.addView(v, cancelLp) }
+                    .onSuccess { lastAppliedCancelLp = AppliedLp(cancelLp.gravity, cancelLp.x, cancelLp.y, cancelLp.flags) }
+                    .onFailure { e -> Log.w(TAG, "cancel_attach_failed ${e.javaClass.simpleName}"); cancelView = null }
+            }
+        }
+        cancelShown = listening
+        val view = cancelView ?: return
+        setTouchable(cancelLp, listening)
+        if (top != null) positionCancel(top)
+        applyCancelLayout(view)
+    }
+
+    private fun applyCancelLayout(view: View) {
+        val next = AppliedLp(cancelLp.gravity, cancelLp.x, cancelLp.y, cancelLp.flags)
+        if (next != lastAppliedCancelLp && update(view, cancelLp)) {
+            lastAppliedCancelLp = next
+        }
+    }
+
+    private fun positionCancel(circleTop: Int) {
+        val d = density()
+        val pad = (BubbleMetrics.CANCEL_HIT - BubbleMetrics.CANCEL_DIAMETER) / 2f
+        val padPx = (pad * d).roundToInt()
+        val hitPx = (BubbleMetrics.CANCEL_HIT * d).roundToInt()
+        val input = lastInput ?: placementInput()
+        val aboveY = circleTop - ((metrics.cancelOffsetY + pad) * d).roundToInt()
+        val gap = (metrics.cancelOffsetY - BubbleMetrics.CANCEL_DIAMETER).coerceAtLeast(8f)
+        val belowY = circleTop + ((metrics.diameter + gap - pad) * d).roundToInt()
+        // Flip below the pill when docked near the top edge so the cancel button never clips off-screen.
+        val rawY = if (aboveY + padPx < input.safeTop) belowY else aboveY
+        val minY = (input.safeTop - padPx).coerceAtLeast(0)
+        val maxY = (input.safeBottom - hitPx + padPx).coerceAtLeast(minY)
+        cancelLp.gravity = Gravity.TOP or if (rightEdge) Gravity.RIGHT else Gravity.LEFT
+        cancelLp.x = ((BubblePlacement.EDGE_MARGIN_DP + metrics.cancelInset - pad) * d).roundToInt()
+        cancelLp.y = rawY.coerceIn(minY, maxY)
     }
 
     // ------------------------------------------------------------------------------------------------------------
@@ -673,7 +733,7 @@ class OverlayHost(
             visual = controller.visual(), rightEdge = rightEdge, circleTop = top,
             yFraction = top?.let { BubblePlacement.fractionOf(it, input) },
             screenW = input.screenW, screenH = input.screenH, rotation = display.rotation, diameterPx = input.bubbleDiameterPx,
-            hiddenUntilMs = controller.hiddenUntilMs, snackbarShown = snackView != null, cancelShown = false,
+            hiddenUntilMs = controller.hiddenUntilMs, snackbarShown = snackView != null, cancelShown = cancelShown,
             rootAlpha = root.alpha,
             dragDrawsPill = dragScene?.pill != null,
             dragTargetShown = dragScene?.let { it.hideArmed && it.targetShown } == true,
