@@ -391,9 +391,19 @@ class OverlayHost(
     private fun positionCancel(circleTop: Int) {
         val d = density()
         val pad = (BubbleMetrics.CANCEL_HIT - BubbleMetrics.CANCEL_DIAMETER) / 2f
+        val padPx = (pad * d).roundToInt()
+        val hitPx = (BubbleMetrics.CANCEL_HIT * d).roundToInt()
+        val input = lastInput ?: placementInput()
+        val aboveY = circleTop - ((metrics.cancelOffsetY + pad) * d).roundToInt()
+        val gap = (metrics.cancelOffsetY - BubbleMetrics.CANCEL_DIAMETER).coerceAtLeast(8f)
+        val belowY = circleTop + ((metrics.diameter + gap - pad) * d).roundToInt()
+        // Flip below the pill when docked near the top edge so the cancel button never clips off-screen.
+        val rawY = if (aboveY + padPx < input.safeTop) belowY else aboveY
+        val minY = (input.safeTop - padPx).coerceAtLeast(0)
+        val maxY = (input.safeBottom - hitPx + padPx).coerceAtLeast(minY)
         cancelLp.gravity = Gravity.TOP or if (rightEdge) Gravity.RIGHT else Gravity.LEFT
         cancelLp.x = ((BubblePlacement.EDGE_MARGIN_DP + metrics.cancelInset - pad) * d).roundToInt()
-        cancelLp.y = circleTop - ((metrics.cancelOffsetY + pad) * d).roundToInt()
+        cancelLp.y = rawY.coerceIn(minY, maxY)
     }
 
     // ------------------------------------------------------------------------------------------------------------
