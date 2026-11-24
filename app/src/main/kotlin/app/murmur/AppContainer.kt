@@ -249,7 +249,8 @@ class AppContainer(private val context: Context) {
             serviceConnected = serviceConnected,
             tryCleanup = { sample, override, prefs -> orchestrator.tryCleanup(sample, override, prefs) },
             retention = retentionNow, apps = apps, permissions = permissions,
-            updater = if (fake != null) null else updater,
+            // Only release builds share the persistent release signing key required for in-place APK upgrades.
+            updater = if (fake != null || BuildConfig.DEBUG) null else updater,
         )
     }
     val onboardingDeps: OnboardingDeps by lazy {

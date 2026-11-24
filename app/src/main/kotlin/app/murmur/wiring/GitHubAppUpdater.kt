@@ -36,15 +36,14 @@ import java.net.URL
 import java.security.MessageDigest
 
 /**
- * Manual GitHub Releases updater triggered only when the user taps "Update" in Settings.
- * Checks the latest release, matches the APK build type (signed release vs debug), downloads and verifies SHA-256
- * when provided, and hands off to Android's [PackageInstaller] confirmation popup.
+ * Manual GitHub Releases updater triggered only when the user taps "Update" in Settings (release builds only).
+ * Checks the latest release, selects the signed release APK, downloads and verifies SHA-256 when provided, and hands
+ * off to Android's [PackageInstaller] confirmation popup.
  */
 class GitHubAppUpdater(
     private val context: Context,
     private val scope: CoroutineScope,
     private val currentVersion: String = BuildConfig.VERSION_NAME,
-    private val isDebug: Boolean = BuildConfig.DEBUG,
     private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : AppUpdater {
 
@@ -78,7 +77,7 @@ class GitHubAppUpdater(
             _state.value = AppUpdateState.UpToDate(currentVersion)
             return
         }
-        val asset = selectApkAsset(release.assets, isDebug) ?: run {
+        val asset = selectApkAsset(release.assets) ?: run {
             _state.value = AppUpdateState.Failed(AppUpdateState.Failed.Failure.NO_APK)
             return
         }
@@ -287,14 +286,10 @@ class GitHubAppUpdater(
             return ReleaseInfo(tag, assets)
         }
 
-        fun selectApkAsset(assets: List<ReleaseAsset>, isDebug: Boolean): ReleaseAsset? =
-            if (isDebug) {
-                assets.firstOrNull { it.name.endsWith("-debug.apk", ignoreCase = true) }
-            } else {
-                assets.firstOrNull {
-                    it.name.endsWith("-release.apk", ignoreCase = true) &&
-                        !it.name.endsWith("-unsigned.apk", ignoreCase = true)
-                }
+        fun selectApkAsset(assets: List<ReleaseAsset>): ReleaseAsset? =
+            assets.firstOrNull {
+                it.name.endsWith("-release.apk", ignoreCase = true) &&
+                    !it.name.endsWith("-unsigned.apk", ignoreCase = true)
             }
 
         private fun parseSha256Digest(raw: String?): String? {
