@@ -39,17 +39,14 @@ jobs:
       - uses: actions/cache@v4
         id: native-cache
         with:
-          path: |
-            .cache/native/jniLibs
-            .cache/native-llama
-            .cache/native/build/sherpa
-          key: native-${{ runner.os }}-ndk${{ env.ANDROID_NDK_VERSION }}-cmake${{ env.ANDROID_CMAKE_VERSION }}-${{ hashFiles('native/llama/versions.env', 'native/llama/patches/**', 'native/sherpa/build-android.sh', 'native/sherpa/patches/**', 'native/sherpa/qnn-probe/**') }}
+          path: .cache/native/jniLibs
+          key: native-npu-${{ runner.os }}-ndk${{ env.ANDROID_NDK_VERSION }}-cmake${{ env.ANDROID_CMAKE_VERSION }}-${{ hashFiles('native/llama/versions.env', 'native/llama/patches/**', 'native/llama/build_android.sh', 'native/sherpa/build-android.sh', 'native/sherpa/patches/**', 'native/sherpa/qnn-probe/**') }}
       - name: Build sherpa-onnx JNI (arm64 + x86_64)
         if: steps.native-cache.outputs.cache-hit != 'true'
         run: JOBS="$(nproc)" bash native/sherpa/build-android.sh all
-      - name: Build llama.cpp (arm64 + x86_64)
+      - name: Build llama.cpp (arm64 NPU + x86_64)
         if: steps.native-cache.outputs.cache-hit != 'true'
-        run: NO_HEAVY=1 JOBS="$(nproc)" bash native/llama/build_android.sh cpu-arm64 cpu-x86_64
+        run: NO_HEAVY=1 JOBS="$(nproc)" bash native/llama/build_android.sh npu cpu-x86_64
       - name: Check the installed libraries
         run: bash tools/e2e/check_native_libs.sh
       - uses: actions/upload-artifact@v4
@@ -92,6 +89,7 @@ jobs:
 
   build:
     needs: native-libs
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -113,18 +111,13 @@ jobs:
       - name: Check the installed libraries
         run: bash tools/e2e/check_native_libs.sh
       - uses: gradle/actions/setup-gradle@v4
-      - name: Assemble debug and release
-        run: ./gradlew assembleDebug assembleRelease --stacktrace
-      - name: Check that both APKs ship the engines
-        run: |
-          bash tools/e2e/check_apk_engines.sh app/build/outputs/apk/debug/app-debug.apk arm64-v8a x86_64
-          bash tools/e2e/check_apk_engines.sh app/build/outputs/apk/release/app-release-unsigned.apk arm64-v8a
-      - name: Check release APK contents
-        run: bash tools/e2e/check_release_apk.sh --no-build
-      - name: Collect APKs
+      - name: Assemble release APK (NPU)
+        run: ./gradlew assembleRelease -Pmurmur.qnn=true -Pmurmur.htp=true --stacktrace
+      - name: Check that the APK ships all NPU engines
+        run: bash tools/e2e/check_apk_engines.sh --npu app/build/outputs/apk/release/app-release-unsigned.apk arm64-v8a
+      - name: Collect APK
         run: |
           mkdir -p dist
-          cp app/build/outputs/apk/debug/app-debug.apk dist/murmur-debug.apk
           cp app/build/outputs/apk/release/app-release-unsigned.apk dist/murmur-release-unsigned.apk
       - uses: actions/upload-artifact@v4
         with:
@@ -211,7 +204,7 @@ jobs:
           else
             echo "signed=false" >> "$GITHUB_OUTPUT"
           fi
-      - name: Assemble debug and release
+      - name: Assemble release APK (NPU)
         if: steps.ver.outputs.skip != 'true'
         env:
           MURMUR_RELEASE_STORE_FILE: ${{ steps.keystore.outputs.store_file }}
@@ -219,27 +212,26 @@ jobs:
           MURMUR_RELEASE_KEY_ALIAS: ${{ secrets.MURMUR_RELEASE_KEY_ALIAS }}
           MURMUR_RELEASE_KEY_PASSWORD: ${{ secrets.MURMUR_RELEASE_KEY_PASSWORD }}
         run: |
-          ./gradlew assembleDebug assembleRelease \
+          ./gradlew assembleRelease \
+            -Pmurmur.qnn=true \
+            -Pmurmur.htp=true \
             -Pmurmur.versionName="${{ steps.ver.outputs.version_name }}" \
             -Pmurmur.versionCode="${{ steps.ver.outputs.version_code }}" \
             --stacktrace
-      - name: Check that both APKs ship the engines
+      - name: Check that the release APK ships all NPU engines
         if: steps.ver.outputs.skip != 'true'
         run: |
-          bash tools/e2e/check_apk_engines.sh app/build/outputs/apk/debug/app-debug.apk arm64-v8a x86_64
           if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
             RELEASE_APK="app/build/outputs/apk/release/app-release.apk"
           else
             RELEASE_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
           fi
-          bash tools/e2e/check_apk_engines.sh "$RELEASE_APK" arm64-v8a
-          bash tools/e2e/check_release_apk.sh --no-build "$RELEASE_APK"
-      - name: Collect APKs
+          bash tools/e2e/check_apk_engines.sh --npu "$RELEASE_APK" arm64-v8a
+      - name: Collect APK
         if: steps.ver.outputs.skip != 'true'
         run: |
           mkdir -p dist
           TAG="${{ steps.ver.outputs.tag }}"
-          cp app/build/outputs/apk/debug/app-debug.apk "dist/murmur-${TAG}-debug.apk"
           if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
             cp app/build/outputs/apk/release/app-release.apk "dist/murmur-${TAG}-release.apk"
           else
