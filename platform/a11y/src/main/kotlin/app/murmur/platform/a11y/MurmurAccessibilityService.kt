@@ -55,7 +55,9 @@ interface A11yServiceHost {
 
     /** The bubble on [displayId] (one per display). Default: WP-03's Compose bubble in an accessibility overlay. */
     fun bubbleFor(service: AccessibilityService, displayId: Int): BubbleSurface =
-        OverlayBubbleSurface(OverlayHost(service, displayId, dictation.bubble, dictation.levels, ::onUserInput, settings))
+        OverlayBubbleSurface(
+            OverlayHost(service, displayId, dictation.bubble, dictation.levels, ::onUserInput, settings, monotonicClock = dictation::elapsedMs),
+        )
 }
 
 /** What the service needs from a per-display bubble window. */

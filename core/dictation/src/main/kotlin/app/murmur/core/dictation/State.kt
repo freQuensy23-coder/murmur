@@ -60,6 +60,8 @@ sealed interface DictationState {
         val plan: SessionPlan,
         val engines: EngineStatus,
         val showTranscribing: Boolean = false,
+        /** True for stored-audio retries and crash replays where ASR must decode the full recording, not just the tail. */
+        val wholeRecording: Boolean = false,
     ) : DictationState
 
     /**

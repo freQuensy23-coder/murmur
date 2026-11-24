@@ -61,7 +61,7 @@ object PackPlanner {
     }
 
     fun defaultChoice(options: List<PackOption>): PackOption? =
-        options.firstOrNull { it.llm == null && it.pack.recommended } ?: options.firstOrNull { it.llm == null }
+        options.firstOrNull { it.pack.recommended } ?: options.firstOrNull()
 
     /**
      * The settings a chosen pack implies: its speech model, and its cleanup model (None for a speech-only pack), so

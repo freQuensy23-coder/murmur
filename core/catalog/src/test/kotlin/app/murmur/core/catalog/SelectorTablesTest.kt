@@ -130,7 +130,7 @@ class SelectorTablesTest {
         val pack = catalog.packs.single { it.id == "recommended" }
         val plan = DownloadPlanner.forPack(catalog, pack, emu, useScreen = true)
         assertEquals(
-            listOf("parakeet-tdt-0.6b-v3@onnx-int8", "silero-vad-v5@onnx", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-cyrillic-mobile-rec@onnx", "lfm3-1.7b@q4_0-qad"),
+            listOf("parakeet-tdt-0.6b-v3@onnx-int8", "silero-vad-v5@onnx", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-cyrillic-mobile-rec@onnx", "murmur-cleanup-qwen3.5-2b@q4_0"),
             plan.map { it.artifact.id.value },
         )
         // One artifact per model.

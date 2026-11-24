@@ -104,12 +104,27 @@ object BenchValidity {
         else -> null
     }
 
-    /** [expectCyrillic] from the fixed case (a Russian transcript). stopReason per LlmStats. */
-    fun llm(output: String, guardAccepted: Boolean, stopReason: Int, expectCyrillic: Boolean): String? = when {
+    /** Guard fallback reasons that indicate broken unit numerics/decoding rather than model prompt quality. */
+    private val HARD_GUARD_REASONS = setOf("R1_empty", "R2_leaked_tags", "R4_loop", "R4_length", "R5_script")
+
+    /**
+     * [expectCyrillic] from the fixed case (a Russian transcript). stopReason per LlmStats.
+     *
+     * Soft prompt-quality fallbacks (e.g. R7_distractor when a model copies an OCR distractor identically on CPU and
+     * NPU) do not disqualify a unit unless CPU itself passed the guard ([cpuGuardAccepted] == true).
+     */
+    fun llm(
+        output: String,
+        guardAccepted: Boolean,
+        stopReason: Int,
+        expectCyrillic: Boolean,
+        guardReason: String? = null,
+        cpuGuardAccepted: Boolean? = null,
+    ): String? = when {
         output.isBlank() -> "empty"
         stopReason != 0 -> "early_stop"
-        !guardAccepted -> "guard_fallback"
         expectCyrillic && output.count { it in '\u0400'..'\u04FF' } < output.count { it.isLetter() } / 2 -> "wrong_script"
+        !guardAccepted && (guardReason == null || guardReason in HARD_GUARD_REASONS || cpuGuardAccepted == true) -> "guard_fallback"
         else -> null
     }
 }

@@ -29,8 +29,10 @@ data class DictationConfig(
     /** ASR tail: base + factor x tail audio (NPU 20 s window = one encoder call; CPU fallback slower). */
     val asrFinalBaseMs: Long = 4_000,
     val asrFinalPerAudioSec: Double = 0.5,
-    /** "Didn't catch that" below this much VAD speech (DESIGN 5.5). */
-    val minSpeechMs: Long = 500,
+    /** Extra headroom on ASR_FINAL when the user taps stop while :asr is still cold-loading (matches 15 s loadAsr). */
+    val asrLoadWaitMs: Long = 15_000,
+    /** "Didn't catch that" below this much VAD speech (matches SegmenterConfig.minSpeechMs = 250 ms). */
+    val minSpeechMs: Long = 250,
     /**
      * Transcript ready, LLM still loading (cold NPU load, or a prefix prefill after a prompt edit): wait at most this
      * long, then insert raw ("skipped:llm_not_ready"); the load continues so the next dictation is warm.

@@ -286,17 +286,12 @@ private fun LiftedPill(scene: DragScene, pill: BubbleUi, levels: State<FloatArra
         onSettled()
     }
     val band = with(density) { m.shadowPad.dp.toPx() }
-    val inset = with(density) { m.cancelInset.dp.toPx() }
-    val cancelD = with(density) { BubbleMetrics.CANCEL_DIAMETER.dp.toPx() }
-    val cancelUp = with(density) { m.cancelOffsetY.dp.toPx() }
-    val listening = ((pill.visual as? BubbleVisual.Active)?.state as? DictationBubble.Listening)?.hold == false
     val noActions = remember {
         object : BubbleActions {
             override fun tap(region: TouchRegion) = Unit
             override fun hide() = Unit
         }
     }
-    val shadowReach = with(density) { ((BubbleMetrics.CANCEL_HIT - BubbleMetrics.CANCEL_DIAMETER) / 2f).dp.toPx() }
     Box(
         Modifier
             .fillMaxSize()
@@ -320,19 +315,6 @@ private fun LiftedPill(scene: DragScene, pill: BubbleUi, levels: State<FloatArra
             transformOrigin = TransformOrigin(anchor.value, 0.5f)
         }) {
             Pill(pill, levels, clock, noActions, lifted = true)
-        }
-    }
-    if (listening) {
-        // The cancel circle rides 50 dp above, its docked-side edge 4 dp inside the pill's docked end.
-        Box(
-            Modifier.offset {
-                val a = anchor.value
-                val leftAnchored = pos.value.x + inset
-                val rightAnchored = pos.value.x + d - inset - cancelD
-                IntOffset((leftAnchored + (rightAnchored - leftAnchored) * a).roundToInt(), (pos.value.y - cancelUp).roundToInt())
-            },
-        ) {
-            CancelCircle(Modifier.bubbleShadow(CircleShape, LocalDark.current, shadowReach))
         }
     }
 }

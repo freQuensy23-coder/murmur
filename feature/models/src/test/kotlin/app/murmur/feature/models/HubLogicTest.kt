@@ -3,6 +3,7 @@ package app.murmur.feature.models
 import app.murmur.core.catalog.Blocker
 import app.murmur.core.catalog.Status
 import app.murmur.core.model.ComputeUnit
+import app.murmur.core.model.ModelId
 import app.murmur.core.model.ModelKind
 import app.murmur.core.model.MurmurError
 import app.murmur.core.model.UnitPreference
@@ -247,11 +248,19 @@ class HubLogicTest {
 
     @Test
     fun cleanupListPutsModelsInTrainingLastAndSpeechListHasTheSupportModels() {
-        val inp = input(emulator)
+        val syntheticTraining = catalog.model(ModelId("murmur-cleanup-lfm3-1.7b"))!!
+            .copy(id = ModelId("murmur-cleanup-synthetic"), status = Status.IN_TRAINING, artifacts = emptyList())
+        val withTraining = catalog.copy(models = listOf(syntheticTraining) + catalog.models)
+        val inp = input(emulator, catalog = withTraining)
         val cleanup = HubLogic.list(HubTab.CLEANUP, inp)
         val firstTraining = cleanup.rows.indexOfFirst { it.state == RowState.InTraining }
         assertTrue(firstTraining > 0)
         assertTrue(cleanup.rows.drop(firstTraining).all { it.state == RowState.InTraining })
+        // Bundled fine-tuned cleanup models are now available for download.
+        val bundledCleanup = HubLogic.list(HubTab.CLEANUP, input(emulator))
+        for (id in listOf("murmur-cleanup-lfm3-1.7b", "murmur-cleanup-qwen3.5-0.8b", "murmur-cleanup-qwen3.5-2b")) {
+            assertTrue(id, bundledCleanup.rows.single { it.id == ModelId(id) }.state is RowState.NotDownloaded)
+        }
         assertTrue(cleanup.support.isEmpty())
         val speech = HubLogic.list(HubTab.SPEECH, inp)
         assertEquals(setOf(ModelKind.VAD, ModelKind.OCR_DET, ModelKind.OCR_REC), speech.support.map { it.kind }.toSet())

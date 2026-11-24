@@ -47,7 +47,6 @@ import app.murmur.core.store.SettingsRepository
 import app.murmur.platform.overlay.ui.BubbleActions
 import app.murmur.platform.overlay.ui.BubbleUi
 import app.murmur.platform.overlay.ui.BubbleWindowContent
-import app.murmur.platform.overlay.ui.CancelButton
 import app.murmur.platform.overlay.ui.DragLayer
 import app.murmur.platform.overlay.ui.DragScene
 import app.murmur.platform.overlay.ui.HiddenSnackbar
@@ -81,6 +80,8 @@ class OverlayHost(
     private val onInput: (UserInput) -> Unit,
     private val settings: SettingsRepository,
     private val clock: () -> Long = System::currentTimeMillis,
+    /** Monotonic clock matching MurmurClock.elapsedMs() (used for the listening timer). */
+    private val monotonicClock: () -> Long = SystemClock::elapsedRealtime,
 ) {
 
     /**
@@ -120,7 +121,6 @@ class OverlayHost(
     private var ui by mutableStateOf(BubbleUi(BubbleVisual.Ready, shown = false, rightEdge = true,
         metrics = BubbleMetrics.of(BubbleSize.STANDARD), reducedMotion = false, talkBack = false))
     private var dark by mutableStateOf(isDark(ctx.resources.configuration))
-    private var cancelShown by mutableStateOf(false)
     private var dragScene by mutableStateOf<DragScene?>(null)
     private var snackText by mutableStateOf<String?>(null)
 
@@ -142,9 +142,9 @@ class OverlayHost(
     private var reducedMotion = readReducedMotion()
 
     private val root = TouchRoot(ctx)
+    private val bubbleActions = Actions()
     private val bubbleLp = overlayParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, title = "MurmurBubble")
-    private var cancelView: View? = null
-    private val cancelLp = overlayParams(WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT, title = "MurmurBubbleCancel")
+    private var lastAppliedBubbleLp: AppliedLp? = null
     private var dragView: View? = null
     private var snackView: View? = null
     private val dismissSnack = Runnable { removeSnack() }
@@ -153,13 +153,23 @@ class OverlayHost(
     private val showTarget = Runnable { dragScene = dragScene?.let { if (it.hideArmed) it.copy(targetShown = true) else it } }
     private val fadedOut = Runnable { if (lastVisual == BubbleVisual.Hidden) root.alpha = 0f }
 
+    private data class AppliedLp(val gravity: Int, val x: Int, val y: Int, val flags: Int)
+
     init {
         root.setViewTreeLifecycleOwner(owners)
         root.setViewTreeSavedStateRegistryOwner(owners)
         root.setViewTreeViewModelStoreOwner(owners)
+        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                if (attached && lastAppliedBubbleLp == null) positionBubble(lastShownVisual)
+            }
+            override fun onViewDetachedFromWindow(v: View) {
+                lastAppliedBubbleLp = null
+            }
+        })
         root.addView(composeView {
             val lv = levels.collectAsState()
-            BubbleWindowContent(ui, dark, lv, clock, Actions())
+            BubbleWindowContent(ui, dark, lv, monotonicClock, bubbleActions)
         })
     }
 
@@ -214,8 +224,8 @@ class OverlayHost(
         main.removeCallbacks(deadlineRunnable); main.removeCallbacks(holdTick); main.removeCallbacks(showTarget); main.removeCallbacks(fadedOut)
         recognizer.cancel()
         removeDragLayer(); removeSnack()
-        cancelView?.let { runCatching { wm.removeViewImmediate(it) } }; cancelView = null
         runCatching { wm.removeViewImmediate(root) }
+        lastAppliedBubbleLp = null
         BubbleViews.unregister(root)
         runCatching { ctx.unregisterComponentCallbacks(configCallbacks) }
         runCatching { context.getSystemService(DisplayManager::class.java).unregisterDisplayListener(displayListener) }
@@ -302,7 +312,6 @@ class OverlayHost(
         // A running gesture keeps its touch stream even when the window turns untouchable.
         setTouchable(bubbleLp, shown && !settling)
         positionBubble(lastShownVisual)
-        updateCancel(visual, dragging)
         if (controller.drag != null) updateDragScene()
 
         main.removeCallbacks(deadlineRunnable)
@@ -331,31 +340,10 @@ class OverlayHost(
         bubbleLp.x = ((metrics.edgeMargin(visual) - metrics.windowPadEdge(visual)) * d).roundToInt()
         val visualTop = top + ((metrics.diameter - metrics.visualHeight(visual)) / 2f * d).roundToInt()
         bubbleLp.y = visualTop - (metrics.windowPadTop(visual) * d).roundToInt()
-        update(root, bubbleLp)
-    }
-
-    private fun updateCancel(visual: BubbleVisual, dragging: Boolean) {
-        val listening = visual is BubbleVisual.Active && (visual.state as? DictationBubble.Listening)?.hold == false && !dragging
-        val top = circleTop
-        if (listening && cancelView == null && top != null) {
-            cancelView = composeView { CancelButton(dark, cancelShown) { controller.onTap(TouchRegion.CANCEL) } }.also {
-                positionCancel(top)
-                runCatching { wm.addView(it, cancelLp) }.onFailure { e -> Log.w(TAG, "cancel_attach_failed ${e.javaClass.simpleName}") }
-            }
+        val next = AppliedLp(bubbleLp.gravity, bubbleLp.x, bubbleLp.y, bubbleLp.flags)
+        if (next != lastAppliedBubbleLp && update(root, bubbleLp)) {
+            lastAppliedBubbleLp = next
         }
-        cancelShown = listening
-        val view = cancelView ?: return
-        setTouchable(cancelLp, listening)
-        if (top != null) positionCancel(top)
-        update(view, cancelLp)
-    }
-
-    private fun positionCancel(circleTop: Int) {
-        val d = density()
-        val pad = (BubbleMetrics.CANCEL_HIT - BubbleMetrics.CANCEL_DIAMETER) / 2f
-        cancelLp.gravity = Gravity.TOP or if (rightEdge) Gravity.RIGHT else Gravity.LEFT
-        cancelLp.x = ((BubblePlacement.EDGE_MARGIN_DP + metrics.cancelInset - pad) * d).roundToInt()
-        cancelLp.y = circleTop - ((metrics.cancelOffsetY + pad) * d).roundToInt()
     }
 
     // ------------------------------------------------------------------------------------------------------------
@@ -448,7 +436,7 @@ class OverlayHost(
         }
         dragView = composeView {
             val lv = levels.collectAsState()
-            dragScene?.let { DragLayer(it, dark, lv, clock) { finishSettle() } }
+            dragScene?.let { DragLayer(it, dark, lv, monotonicClock) { finishSettle() } }
         }.also { v -> runCatching { wm.addView(v, lp) }.onFailure { Log.w(TAG, "drag_layer_failed ${it.javaClass.simpleName}"); dragView = null } }
     }
 
@@ -578,9 +566,8 @@ class OverlayHost(
         else lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
     }
 
-    private fun update(view: View, lp: WindowManager.LayoutParams) {
-        if (attached && view.isAttachedToWindow) runCatching { wm.updateViewLayout(view, lp) }
-    }
+    private fun update(view: View, lp: WindowManager.LayoutParams): Boolean =
+        attached && view.isAttachedToWindow && runCatching { wm.updateViewLayout(view, lp) }.isSuccess
 
     private fun composeView(content: @androidx.compose.runtime.Composable () -> Unit) = ComposeView(ctx).apply {
         setViewTreeLifecycleOwner(owners)
@@ -686,7 +673,7 @@ class OverlayHost(
             visual = controller.visual(), rightEdge = rightEdge, circleTop = top,
             yFraction = top?.let { BubblePlacement.fractionOf(it, input) },
             screenW = input.screenW, screenH = input.screenH, rotation = display.rotation, diameterPx = input.bubbleDiameterPx,
-            hiddenUntilMs = controller.hiddenUntilMs, snackbarShown = snackView != null, cancelShown = cancelShown,
+            hiddenUntilMs = controller.hiddenUntilMs, snackbarShown = snackView != null, cancelShown = false,
             rootAlpha = root.alpha,
             dragDrawsPill = dragScene?.pill != null,
             dragTargetShown = dragScene?.let { it.hideArmed && it.targetShown } == true,
