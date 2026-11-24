@@ -1,19 +1,18 @@
 # Murmur
 
-[По-русски](README.ru.md) · [Latest Releases](https://github.com/freQuensy23-coder/murmur/releases) · [Auto-updates via Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)
+[По-русски](README.ru.md) · [Download v0.2.1 APK](https://github.com/freQuensy23-coder/murmur/releases/download/v0.2.1/murmur-v0.2.1-release.apk) · [All Releases](https://github.com/freQuensy23-coder/murmur/releases) · [Auto-updates via Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)
 
-![Murmur: on-device dictation for Android 14 and later](docs/readme/cover.png)
+**Open-source, 100% offline voice dictation for Android 14+ — keep your usual keyboard.** Tap Murmur’s floating bubble, dictate a reply, then tap again. Your words appear directly in the focused field. Speech recognition, optional screen-aware OCR, and fine-tuned LLM cleanup all run on the phone with no internet connection.
 
-**Leave the cursor where you want the words.** Tap Murmur’s floating bubble, dictate a reply, then tap again. Your words appear in the same field. Keep your usual keyboard. Once the models are downloaded, dictation works on the phone without an internet connection.
-
-![Three illustrated stages in a chat: a recording bubble, a transcribing indicator, then a message in the composer](docs/readme/bubble-sequence.webp)
-*How the bubble works, illustrated with the project’s chat prototype.*
+<p align="center">
+  <img src="docs/readme/demo.gif" alt="Murmur offline dictation demo in Airplane Mode" width="320" />
+</p>
 
 ## Try it on your phone
 
-Install the [debug-signed test build](https://github.com/freQuensy23-coder/murmur/releases/tag/test-56e9d4b) on **Android 14 or newer**. Follow the setup prompts for the microphone, floating bubble and accessibility service. Choose **Speech only**, download the model pack on Wi-Fi, then try a sentence in the practice field before switching to a messaging app.
+Install the signed [v0.2.1 release APK](https://github.com/freQuensy23-coder/murmur/releases/tag/v0.2.1) (or add the repo to [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)) on **Android 14 or newer**. Follow the setup prompts for the microphone, floating bubble and accessibility service, download the default **Speech + Murmur Cleanup** pack on Wi-Fi, then try a sentence in the practice field before switching to a messaging app.
 
-By default Murmur inserts the speech recognizer’s transcript. You can enable local model cleanup to add punctuation or use words visible on screen. **Cleanup is experimental:** it can change or omit spoken words. Screen context and dictated audio are processed on the device.
+Screen context (RAM-only OCR) and dictated audio are processed entirely on the device. You can also switch to **Speech only** or pick any other speech/cleanup model in the Model Hub.
 
 ## Inside the app
 
