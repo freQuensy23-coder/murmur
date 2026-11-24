@@ -106,7 +106,8 @@ class OnboardingControllerTest {
         val opts = w.ctl.models.value.options
         assertNotNull(opts)
         opts!!
-        assertEquals("speech-only", w.ctl.models.value.selectedId)
+        assertEquals("recommended", w.ctl.models.value.selectedId)
+        assertEquals("recommended", opts.first().pack.id)
         assertTrue(ArtifactId("parakeet-tdt-0.6b-v3@qnn-sm8750-20s") in opts.first { it.pack.recommended }.artifacts)
         assertEquals(181_000_000_000L, w.ctl.models.value.freeBytes)
         assertTrue(w.ctl.models.value.npu)
@@ -124,7 +125,7 @@ class OnboardingControllerTest {
         val light = w.ctl.models.value.options!!.first { it.pack.id == "light" }
         assertEquals(light.artifacts, w.downloads.requests)
         assertEquals(ModelId("parakeet-tdt-0.6b-v3"), w.settings.settings.value.asrModel)
-        assertEquals(CleanupChoice.Model(ModelId("qwen3.5-0.8b")), w.settings.settings.value.cleanup)
+        assertEquals(CleanupChoice.Model(ModelId("murmur-cleanup-qwen3.5-0.8b")), w.settings.settings.value.cleanup)
         advanceTimeBy(500)
         val mid = w.ctl.models.value.summary!!
         assertEquals(ModelsPhase.ACTIVE, mid.phase)
@@ -135,15 +136,15 @@ class OnboardingControllerTest {
     }
 
     @Test
-    fun acceptingThePreselectedPackDoesNotEnableOrDownloadCleanup() = runTest {
+    fun acceptingThePreselectedPackSelectsTheFineTunedCleanupModel() = runTest {
         val w = World(backgroundScope)
         toModels(w)
         val selected = w.ctl.models.value.selected!!
-        assertEquals("speech-only", selected.pack.id)
-        assertNull(selected.llm)
+        assertEquals("recommended", selected.pack.id)
+        assertEquals(ModelId("murmur-cleanup-qwen3.5-2b"), selected.llm?.id)
         w.ctl.download()
         runCurrent()
-        assertEquals(CleanupChoice.None, w.settings.settings.value.cleanup)
+        assertEquals(CleanupChoice.Model(ModelId("murmur-cleanup-qwen3.5-2b")), w.settings.settings.value.cleanup)
         assertEquals(selected.artifacts, w.downloads.requests)
     }
 
@@ -162,7 +163,7 @@ class OnboardingControllerTest {
         val s = w.ctl.models.value.summary!!
         assertEquals(MurmurError.NoNetwork, s.stopReason)
         assertTrue("speech works without cleanup", s.speechReady)
-        assertEquals("LFM3 1.7B", s.cleanupPending)
+        assertEquals("Murmur Cleanup (Qwen3.5 2B)", s.cleanupPending)
         w.ctl.retry()
         runCurrent()
         assertEquals(OnboardingStep.DOWNLOADING, w.ctl.state.value.step)

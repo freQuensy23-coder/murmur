@@ -30,7 +30,7 @@ class PacksTest {
         val onEmu = PackPlanner.options(catalog, emulator, Settings())
         assertEquals("every bundled pack is offered on both", catalog.packs.map { it.id }.toSet(), onFold.map { it.pack.id }.toSet())
         assertEquals(catalog.packs.map { it.id }.toSet(), onEmu.map { it.pack.id }.toSet())
-        assertEquals("recommended first", "speech-only", onFold.first().pack.id)
+        assertEquals("recommended first", "recommended", onFold.first().pack.id)
 
         val foldRec = onFold.first { it.pack.id == "recommended" }
         val emuRec = onEmu.first { it.pack.id == "recommended" }
@@ -44,7 +44,7 @@ class PacksTest {
             assertTrue(ArtifactId("silero-vad-v5@onnx") in o.artifacts)
             assertTrue(ArtifactId("pp-ocrv6-tiny-det@onnx") in o.artifacts)
             assertTrue(ArtifactId("pp-ocrv5-cyrillic-mobile-rec@onnx") in o.artifacts)
-            assertEquals(ModelId("lfm3-1.7b"), o.llm?.id)
+            assertEquals(ModelId("murmur-cleanup-qwen3.5-2b"), o.llm?.id)
             assertEquals(o.plan.sumOf { it.artifact.downloadBytes }, o.totalBytes)
             assertEquals("nothing installed yet", o.totalBytes, o.remainingBytes)
         }
@@ -56,7 +56,7 @@ class PacksTest {
         assertNotEquals("the two phones get different downloads", foldRec.totalBytes, emuRec.totalBytes)
         // The planner is the hub's rule too (DownloadPlanner): onboarding adds nothing of its own.
         assertEquals(DownloadPlanner.forPack(catalog, foldRec.pack, fold7, true), foldRec.plan)
-        assertEquals("1.5", ByteFormat.packGb(foldRec.totalBytes, Locale.US))
+        assertEquals("1.7", ByteFormat.packGb(foldRec.totalBytes, Locale.US))
     }
 
     @Test
@@ -82,10 +82,10 @@ class PacksTest {
         val opts = PackPlanner.options(catalog, emulator, Settings())
         val light = PackPlanner.applyChoice(Settings(), opts.first { it.pack.id == "light" })
         assertEquals(ModelId("parakeet-tdt-0.6b-v3"), light.asrModel)
-        assertEquals(CleanupChoice.Model(ModelId("qwen3.5-0.8b")), light.cleanup)
+        assertEquals(CleanupChoice.Model(ModelId("murmur-cleanup-qwen3.5-0.8b")), light.cleanup)
         assertEquals(CleanupChoice.None, PackPlanner.applyChoice(Settings(), opts.first { it.pack.id == "speech-only" }).cleanup)
-        assertEquals("speech-only", PackPlanner.defaultChoice(opts)?.pack?.id)
-        assertNull(PackPlanner.defaultChoice(opts.filter { it.llm != null }))
+        assertEquals("recommended", PackPlanner.defaultChoice(opts)?.pack?.id)
+        assertEquals("light", PackPlanner.defaultChoice(opts.filter { !it.pack.recommended })?.pack?.id)
     }
 
     @Test
@@ -107,7 +107,7 @@ class PacksTest {
         assertEquals(ModelsPhase.ACTIVE, mid.phase)
         assertEquals(false, mid.preparing)
         assertTrue(mid.speechReady)
-        assertEquals("cleanup model still on its way", "LFM3 1.7B", mid.cleanupPending)
+        assertEquals("cleanup model still on its way", "Murmur Cleanup (Qwen3.5 2B)", mid.cleanupPending)
         assertEquals(total, mid.bytesTotal)
         val expectedDone = total - catalog.artifact(rec2)!!.second.downloadBytes - llmBytes + llmBytes / 4
         assertEquals(expectedDone, mid.bytesDone)

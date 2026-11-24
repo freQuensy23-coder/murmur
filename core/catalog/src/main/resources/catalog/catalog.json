@@ -15,32 +15,32 @@
  "packs": [
   {
    "id": "recommended",
-   "title": "Speech + LFM3 cleanup",
-   "description": "Parakeet speech + LFM3 cleanup + screen reading",
+   "title": "Speech + Murmur Cleanup",
+   "recommended": true,
+   "description": "Parakeet speech + Murmur Cleanup (Qwen3.5 2B) + screen reading",
    "items": [
     "parakeet-tdt-0.6b-v3",
     "silero-vad-v5",
     "pp-ocrv6-tiny-det",
     "pp-ocrv5-cyrillic-mobile-rec",
-    "lfm3-1.7b"
+    "murmur-cleanup-qwen3.5-2b"
    ]
   },
   {
    "id": "light",
    "title": "Lighter and faster",
-   "description": "Parakeet speech + Qwen3.5 0.8B cleanup + screen reading",
+   "description": "Parakeet speech + Murmur Cleanup (Qwen3.5 0.8B) + screen reading",
    "items": [
     "parakeet-tdt-0.6b-v3",
     "silero-vad-v5",
     "pp-ocrv6-tiny-det",
     "pp-ocrv5-cyrillic-mobile-rec",
-    "qwen3.5-0.8b"
+    "murmur-cleanup-qwen3.5-0.8b"
    ]
   },
   {
    "id": "speech-only",
    "title": "Speech only",
-   "recommended": true,
    "description": "No cleanup",
    "items": [
     "parakeet-tdt-0.6b-v3",
