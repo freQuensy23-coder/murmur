@@ -140,6 +140,7 @@ class OverlayHost(
     private var visualRectInWindow: Rect? = null
     private var actionRectInWindow: Rect? = null
     private var dragGrab: Offset? = null
+    private var dragInput: PlacementInput? = null
     private var settling = false
     private var reducedMotion = readReducedMotion()
 
@@ -157,6 +158,7 @@ class OverlayHost(
     private val holdTick = Runnable { handle(recognizer.tick(SystemClock.uptimeMillis())) }
     private val showTarget = Runnable { dragScene = dragScene?.let { if (it.hideArmed) it.copy(targetShown = true) else it } }
     private val fadedOut = Runnable { if (lastVisual == BubbleVisual.Hidden) root.alpha = 0f }
+    private val warmCancel = Runnable { if (attached && cancelView == null) circleTop?.let { ensureCancelView(it, touchable = false) } }
 
     private data class AppliedLp(val gravity: Int, val x: Int, val y: Int, val flags: Int)
 
@@ -210,11 +212,13 @@ class OverlayHost(
         s.launch { dictation.collect { controller.dictation = it; refresh("dictation") } }
         Log.i(TAG, "bubble_attached display=$displayId type=${bubbleLp.type} bounds=${wm.currentWindowMetrics.bounds.toShortString()}")
         refresh("attach")
+        main.post(warmCancel)
         return true
     }
 
     fun updateVisibility(input: VisibilityInput) {
         if (Looper.myLooper() != Looper.getMainLooper()) { main.post { updateVisibility(input) }; return }
+        if (input == controller.visibility && lastInput != null) return
         controller.visibility = input
         refresh("visibility")
     }
@@ -226,7 +230,9 @@ class OverlayHost(
     fun detach() {
         if (!attached) return
         attached = false
-        main.removeCallbacks(deadlineRunnable); main.removeCallbacks(holdTick); main.removeCallbacks(showTarget); main.removeCallbacks(fadedOut)
+        main.removeCallbacks(deadlineRunnable); main.removeCallbacks(holdTick); main.removeCallbacks(showTarget)
+        main.removeCallbacks(fadedOut); main.removeCallbacks(warmCancel)
+        dragInput = null
         recognizer.cancel()
         removeDragLayer(); removeSnack()
         cancelView?.let { runCatching { wm.removeViewImmediate(it) } }; cancelView = null
@@ -358,27 +364,32 @@ class OverlayHost(
         val listening = visual is BubbleVisual.Active && (visual.state as? DictationBubble.Listening)?.hold == false && !dragging
         val top = circleTop
         if (listening && cancelView == null && top != null) {
-            setTouchable(cancelLp, true)
-            positionCancel(top)
-            cancelView = composeView { CancelButton(dark, cancelShown) { controller.onTap(TouchRegion.CANCEL) } }.also { v ->
-                v.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
-                    override fun onViewAttachedToWindow(view: View) {
-                        if (attached) applyCancelLayout(view)
-                    }
-                    override fun onViewDetachedFromWindow(view: View) {
-                        lastAppliedCancelLp = null
-                    }
-                })
-                runCatching { wm.addView(v, cancelLp) }
-                    .onSuccess { lastAppliedCancelLp = AppliedLp(cancelLp.gravity, cancelLp.x, cancelLp.y, cancelLp.flags) }
-                    .onFailure { e -> Log.w(TAG, "cancel_attach_failed ${e.javaClass.simpleName}"); cancelView = null }
-            }
+            ensureCancelView(top, touchable = true)
         }
         cancelShown = listening
         val view = cancelView ?: return
         setTouchable(cancelLp, listening)
         if (top != null) positionCancel(top)
         applyCancelLayout(view)
+    }
+
+    private fun ensureCancelView(top: Int, touchable: Boolean) {
+        if (cancelView != null) return
+        setTouchable(cancelLp, touchable)
+        positionCancel(top)
+        cancelView = composeView { CancelButton(dark, cancelShown) { controller.onTap(TouchRegion.CANCEL) } }.also { v ->
+            v.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+                override fun onViewAttachedToWindow(view: View) {
+                    if (attached) applyCancelLayout(view)
+                }
+                override fun onViewDetachedFromWindow(view: View) {
+                    lastAppliedCancelLp = null
+                }
+            })
+            runCatching { wm.addView(v, cancelLp) }
+                .onSuccess { lastAppliedCancelLp = AppliedLp(cancelLp.gravity, cancelLp.x, cancelLp.y, cancelLp.flags) }
+                .onFailure { e -> Log.w(TAG, "cancel_attach_failed ${e.javaClass.simpleName}"); cancelView = null }
+        }
     }
 
     private fun applyCancelLayout(view: View) {
@@ -428,13 +439,17 @@ class OverlayHost(
     }
 
     private fun handle(gestures: List<Gesture>) {
+        if (gestures.isEmpty()) return
+        var onlyDragMove = true
         for (g in gestures) {
-            if (g is Gesture.DragEnd) Log.i(TAG, "bubble_drag_end display=$displayId vx_dp_s=${g.vxDpPerSec.roundToInt()}")
-            else if (g !is Gesture.DragMove) Log.i(TAG, "bubble_gesture display=$displayId $g")
+            if (g !is Gesture.DragMove) {
+                onlyDragMove = false
+                if (g is Gesture.DragEnd) Log.i(TAG, "bubble_drag_end display=$displayId vx_dp_s=${g.vxDpPerSec.roundToInt()}")
+                else Log.i(TAG, "bubble_gesture display=$displayId $g")
+            }
             if (g is Gesture.DragStart) startDrag(g.x, g.y) else controller.onGesture(g)
-            if (g is Gesture.DragMove || g is Gesture.DragEnd || g == Gesture.DragCancel) updateDragScene()
         }
-        if (gestures.isNotEmpty()) refresh("gesture")
+        if (onlyDragMove) updateDragScene() else refresh("gesture")
     }
 
     /**
@@ -442,7 +457,7 @@ class OverlayHost(
      * a moving window): every visual is centred on the docked circle, and a wide pill is grabbed at its docked end.
      */
     private fun grabOffset(rawX: Float, rawY: Float): Offset {
-        val input = placementInput()
+        val input = lastInput ?: placementInput()
         val d = input.bubbleDiameterPx.toFloat()
         val top = circleTop ?: return Offset(d / 2f, d / 2f)
         val left = BubblePlacement.xFor(rightEdge, input.screenW, input.bubbleDiameterPx, input.density)
@@ -454,6 +469,7 @@ class OverlayHost(
 
     private fun startDrag(x: Float, y: Float) {
         val input = placementInput()
+        dragInput = input
         val d = density()
         val grab = dragGrab ?: Offset(input.bubbleDiameterPx / 2f, input.bubbleDiameterPx / 2f)
         controller.startDrag(x, y, DragGeometry(input, grab.x, grab.y, input.screenW / 2f, targetCenter(input), BubbleMetrics.MAGNET_RADIUS * d))
@@ -465,7 +481,7 @@ class OverlayHost(
 
     private fun updateDragScene() {
         val s = controller.drag ?: return
-        val input = placementInput()
+        val input = dragInput ?: placementInput()
         val prev = dragScene
         // The pill being moved, live (a dictation can change state mid-drag); null = the idle bubble: the Ready circle.
         val pill = controller.dictation.takeIf { it !is DictationBubble.Idle }
@@ -502,6 +518,7 @@ class OverlayHost(
 
     private fun finishSettle() {
         settling = false
+        dragInput = null
         main.removeCallbacks(showTarget)
         removeDragLayer()
         refresh("settled")
@@ -521,6 +538,7 @@ class OverlayHost(
         controller.hiddenUntilMs = until
         scope?.launch { settings.update { it.copy(hiddenUntilEpochMs = until) } }
         settling = false
+        dragInput = null
         main.removeCallbacks(showTarget)
         removeDragLayer()
         showSnack(until)
@@ -602,7 +620,10 @@ class OverlayHost(
         return PxRect(loc[0] + r.left, loc[1] + r.top, loc[0] + r.right, loc[1] + r.bottom)
     }
 
-    private fun onDisplayChanged() = refresh("display")
+    private fun onDisplayChanged() {
+        dragInput = null
+        refresh("display")
+    }
 
     // ------------------------------------------------------------------------------------------------------------
     // Plumbing

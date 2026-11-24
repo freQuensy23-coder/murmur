@@ -20,7 +20,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -41,22 +40,32 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.AbsoluteAlignment
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -72,6 +81,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import app.murmur.core.dictation.DictationBubble
 import app.murmur.core.model.ProductName
@@ -83,7 +93,10 @@ import app.murmur.platform.overlay.R
 import app.murmur.platform.overlay.TouchRegion
 import app.murmur.ui.design.MurmurColors
 import app.murmur.ui.design.MurmurTheme
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlin.math.ceil
 
 /** What the bubble UI reports to its host (the overlay window or a test activity). */
 interface BubbleActions {
@@ -219,14 +232,17 @@ private fun ring(face: Face, c: MurmurColors, dark: Boolean): Color = when (face
     else -> Color.Transparent
 }
 
+private val PILL_SHAPE = RoundedCornerShape(percent = 50)
+
 private fun AnimatedContentTransitionScope<BubbleVisual>.morph(reduced: Boolean): ContentTransform =
     if (reduced) {
         // DESIGN 3.5 reduced motion: 150 ms cross-fades, no morph.
         (fadeIn(tween(150)) togetherWith fadeOut(tween(150))) using SizeTransform(clip = true) { _, _ -> snap() }
     } else {
-        // Circle <-> pill: width springs (1500, 0.9); content cross-fades over 150 ms after 60 ms.
+        // Layout size snaps inside a held-bounds container while the pill shape springs in the draw phase:
+        // avoids per-frame WRAP_CONTENT WindowManager relayouts and SurfaceFlinger BLAST buffer reallocations.
         (fadeIn(tween(150, delayMillis = 60)) togetherWith fadeOut(tween(60))) using
-            SizeTransform(clip = true) { _, _ -> spring(dampingRatio = 0.9f, stiffness = 1500f) }
+            SizeTransform(clip = false) { _, _ -> snap() }
     }
 
 /**
@@ -240,41 +256,124 @@ internal fun Pill(ui: BubbleUi, levels: State<FloatArray>, clock: () -> Long, ac
     val m = ui.metrics
     val face = faceOf(ui.visual)
     val colorSpec = if (ui.reducedMotion) tween<Color>(150) else tween(150, delayMillis = 60)
-    val bg by animateColorAsState(fill(face, c), colorSpec, label = "bubbleFill")
-    val ringColor by animateColorAsState(ring(face, c, dark), colorSpec, label = "bubbleRing")
-    val shape = RoundedCornerShape(percent = 50)
+    // Keep State objects rather than delegating with `by` so color frames redraw without recomposing Pill().
+    val bgState = animateColorAsState(fill(face, c), colorSpec, label = "bubbleFill")
+    val ringState = animateColorAsState(ring(face, c, dark), colorSpec, label = "bubbleRing")
     val reach = with(LocalDensity.current) { m.shadowPad.dp.toPx() }
+    val shadowPaints = remember(dark, reach, lifted) {
+        if (lifted || reach <= 0f) null else BubbleShadowPaints(dark, reach)
+    }
+    val clipPath = remember { Path() }
+    var targetSize by remember { mutableStateOf(IntSize.Zero) }
+    var holdSize by remember { mutableStateOf(IntSize.Zero) }
+    val animW = remember { Animatable(0f) }
+    val animH = remember { Animatable(0f) }
+
+    LaunchedEffect(targetSize, ui.reducedMotion, m) {
+        if (targetSize.width <= 0 || targetSize.height <= 0) return@LaunchedEffect
+        val tw = targetSize.width.toFloat()
+        val th = targetSize.height.toFloat()
+        if (ui.reducedMotion || animW.value <= 0f || animH.value <= 0f) {
+            animW.snapTo(tw)
+            animH.snapTo(th)
+            holdSize = targetSize
+            return@LaunchedEffect
+        }
+        // Hold the window at max(current, target) for the whole spring so WindowManager never relayouts mid-animation:
+        // growing does 1 relayout at frame 0; shrinking does 0 at frame 0 and 1 invisible relayout after settling.
+        holdSize = IntSize(
+            maxOf(holdSize.width, targetSize.width, ceil(animW.value).toInt()),
+            maxOf(holdSize.height, targetSize.height, ceil(animH.value).toInt()),
+        )
+        coroutineScope {
+            val spec = spring<Float>(dampingRatio = 0.9f, stiffness = 1500f)
+            if (animW.value != tw) launch { animW.animateTo(tw, spec) }
+            if (animH.value != th) launch { animH.animateTo(th, spec) }
+        }
+        holdSize = targetSize
+    }
+
     // Error carries two nodes (reason and action button) inside; every other face is one node, laid over the pill at
     // >= 48 dp inside the band (DESIGN 5.6: the hit area is never below 48 dp, also at Small).
     val ownSemantics = face != Face.ERROR
     Box {
-        AnimatedContent(
-            targetState = ui.visual,
-            contentKey = ::faceOf,
-            modifier = Modifier
+        Box(
+            Modifier
                 .padding(m.shadowPad.dp)
-                .testTag(TAG_VISUAL)
-                .then(if (lifted) Modifier.shadow(12.dp, shape) else Modifier.bubbleShadow(shape, dark, reach))
-                .background(bg, shape)
-                .border(1.dp, ringColor, shape)
-                .then(if (ownSemantics) Modifier.clearAndSetSemantics { } else Modifier)
-                .onGloballyPositioned { actions.visualBounds(it.boundsInWindow()) },
-            contentAlignment = if (ui.rightEdge) Alignment.CenterEnd else Alignment.CenterStart,
-            transitionSpec = { morph(ui.reducedMotion) },
-            label = "bubble",
-        ) { v ->
-            when (faceOf(v)) {
-                Face.CIRCLE -> ReadyCircle(ui)
-                Face.LISTEN -> ListeningPill((v as BubbleVisual.Active).state as DictationBubble.Listening, ui, levels, clock)
-                Face.HOLD -> HoldPill(ui, levels)
-                Face.TRANSCRIBING -> WorkingPill(ui, R.string.bubble_transcribing) { TranscribingBars(m) }
-                Face.POLISHING -> WorkingPill(ui, R.string.bubble_polishing) { PolishingDots(m, ui.reducedMotion) }
-                Face.DONE -> {
-                    val inserted = (v as BubbleVisual.Active).state as DictationBubble.Inserted
-                    DonePill(ui, if (inserted.noCleanup) R.string.bubble_inserted_nocleanup else R.string.bubble_inserted, BubbleIcons.check, c.ok)
+                .then(if (lifted) Modifier.shadow(12.dp, PILL_SHAPE, clip = false) else Modifier)
+                .drawWithContent {
+                    val w = (if (animW.value > 0f) animW.value else size.width).coerceIn(0f, size.width)
+                    val h = (if (animH.value > 0f) animH.value else size.height).coerceIn(0f, size.height)
+                    val left = if (ui.rightEdge) size.width - w else 0f
+                    val top = (size.height - h) / 2f
+                    val radius = minOf(w, h) / 2f
+                    if (shadowPaints != null && w > 0f && h > 0f) {
+                        drawIntoCanvas { canvas ->
+                            shadowPaints.drawRoundRect(canvas.nativeCanvas, left, top, left + w, top + h, radius)
+                        }
+                    }
+                    if (w > 0f && h > 0f) {
+                        drawRoundRect(
+                            color = bgState.value,
+                            topLeft = Offset(left, top),
+                            size = Size(w, h),
+                            cornerRadius = CornerRadius(radius, radius),
+                        )
+                        clipPath.rewind()
+                        clipPath.addRoundRect(RoundRect(left, top, left + w, top + h, CornerRadius(radius, radius)))
+                        clipPath(clipPath) {
+                            this@drawWithContent.drawContent()
+                        }
+                        val ring = ringState.value
+                        if (ring.alpha > 0f) {
+                            val stroke = 1.dp.toPx()
+                            val half = stroke / 2f
+                            drawRoundRect(
+                                color = ring,
+                                topLeft = Offset(left + half, top + half),
+                                size = Size((w - stroke).coerceAtLeast(0f), (h - stroke).coerceAtLeast(0f)),
+                                cornerRadius = CornerRadius((radius - half).coerceAtLeast(0f), (radius - half).coerceAtLeast(0f)),
+                                style = Stroke(width = stroke),
+                            )
+                        }
+                    }
                 }
-                Face.COPIED -> DonePill(ui, R.string.bubble_copied, BubbleIcons.clipboard, c.accentInk)
-                Face.ERROR -> ErrorPill((v as BubbleVisual.Active).state as DictationBubble.Error, ui, actions)
+                .layout { measurable, constraints ->
+                    val p = measurable.measure(constraints)
+                    val layoutW = maxOf(p.width, holdSize.width)
+                    val layoutH = maxOf(p.height, holdSize.height)
+                    layout(layoutW, layoutH) {
+                        val x = if (ui.rightEdge) layoutW - p.width else 0
+                        val y = (layoutH - p.height) / 2
+                        p.place(x, y)
+                    }
+                },
+        ) {
+            AnimatedContent(
+                targetState = ui.visual,
+                contentKey = ::faceOf,
+                modifier = Modifier
+                    .testTag(TAG_VISUAL)
+                    .onSizeChanged { targetSize = it }
+                    .then(if (ownSemantics) Modifier.clearAndSetSemantics { } else Modifier)
+                    .onGloballyPositioned { actions.visualBounds(it.boundsInWindow()) },
+                contentAlignment = if (ui.rightEdge) AbsoluteAlignment.CenterRight else AbsoluteAlignment.CenterLeft,
+                transitionSpec = { morph(ui.reducedMotion) },
+                label = "bubble",
+            ) { v ->
+                when (faceOf(v)) {
+                    Face.CIRCLE -> ReadyCircle(ui)
+                    Face.LISTEN -> ListeningPill((v as BubbleVisual.Active).state as DictationBubble.Listening, ui, levels, clock)
+                    Face.HOLD -> HoldPill(ui, levels)
+                    Face.TRANSCRIBING -> WorkingPill(ui, R.string.bubble_transcribing) { TranscribingBars(m) }
+                    Face.POLISHING -> WorkingPill(ui, R.string.bubble_polishing) { PolishingDots(m, ui.reducedMotion) }
+                    Face.DONE -> {
+                        val inserted = (v as BubbleVisual.Active).state as DictationBubble.Inserted
+                        DonePill(ui, if (inserted.noCleanup) R.string.bubble_inserted_nocleanup else R.string.bubble_inserted, BubbleIcons.check, c.ok)
+                    }
+                    Face.COPIED -> DonePill(ui, R.string.bubble_copied, BubbleIcons.clipboard, c.accentInk)
+                    Face.ERROR -> ErrorPill((v as BubbleVisual.Active).state as DictationBubble.Error, ui, actions)
+                }
             }
         }
         val text = faceText(ui, face)
