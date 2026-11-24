@@ -10,6 +10,7 @@
     <string name="settings_section_cleanup">Cleanup</string>
     <string name="settings_section_privacy">History and privacy</string>
     <string name="settings_section_permissions">Permissions</string>
+    <string name="settings_section_app">App</string>
     <string name="settings_section_debug">Debug</string>
 
     <!-- Dictation -->
@@ -242,4 +243,19 @@
     <string name="tone_preview_note">Preview: until its wording ships, a tone you pick keeps the app\'s usual style.</string>
     <!-- %1$s = app, %2$s = tone -->
     <string name="tone_chip_cd">%1$s tone: %2$s</string>
+    <!-- App update -->
+    <string name="settings_update">Update</string>
+    <string name="settings_update_sub">Check GitHub Releases for a newer version</string>
+    <string name="settings_update_current">Current version %1$s</string>
+    <string name="settings_update_checking">Checking for updates…</string>
+    <string name="settings_update_downloading">Downloading %1$s…</string>
+    <string name="settings_update_downloading_pct">Downloading %1$s (%2$d%%)…</string>
+    <string name="settings_update_installing">Preparing %1$s…</string>
+    <string name="settings_update_up_to_date">You have the latest version (%1$s)</string>
+    <string name="settings_update_latest_badge">Up to date</string>
+    <string name="settings_update_permission">Allow installing updates, then tap again</string>
+    <string name="settings_update_err_network">Couldn\'t check for updates. Check your connection.</string>
+    <string name="settings_update_err_no_apk">No compatible APK found in the latest release.</string>
+    <string name="settings_update_err_verify">Download verification failed. Try again.</string>
+    <string name="settings_update_err_install">Couldn\'t start installer. Try again.</string>
 </resources>

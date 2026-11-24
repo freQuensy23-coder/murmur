@@ -66,6 +66,7 @@ import app.murmur.shell.IntentAppNavigator
 import app.murmur.ui.design.AppInfoProvider
 import app.murmur.wiring.AndroidPermissionMonitor
 import app.murmur.wiring.FakeData
+import app.murmur.wiring.GitHubAppUpdater
 import app.murmur.wiring.PackageAppInfoProvider
 import app.murmur.wiring.StatusNotificationController
 import app.murmur.wiring.StoredPrefillSpeeds
@@ -241,12 +242,14 @@ class AppContainer(private val context: Context) {
             custom = customModels, device = deviceProfile.profile, health = unitHealth, ensureDevice = deviceProfile::ensure,
         )
     }
+    private val updater by lazy { GitHubAppUpdater(context, appScope) }
     val settingsDeps: SettingsDeps by lazy {
         SettingsDeps(
             settings = settings, prompts = prompts, renderer = renderer, catalog = catalog, history = history,
             serviceConnected = serviceConnected,
             tryCleanup = { sample, override, prefs -> orchestrator.tryCleanup(sample, override, prefs) },
             retention = retentionNow, apps = apps, permissions = permissions,
+            updater = if (fake != null) null else updater,
         )
     }
     val onboardingDeps: OnboardingDeps by lazy {
