@@ -1,33 +1,89 @@
+<div align="center">
+
+<img src="fastlane/metadata/android/en-US/images/icon.png" alt="Murmur icon" width="88" />
+
 # Murmur
 
-[По-русски](README.ru.md) · [Download v0.2.1 APK](https://github.com/freQuensy23-coder/murmur/releases/download/v0.2.1/murmur-v0.2.1-release.apk) · [All Releases](https://github.com/freQuensy23-coder/murmur/releases) · [Auto-updates via Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)
+**100% offline voice dictation for Android — keep your keyboard.**
 
-**Open-source, 100% offline voice dictation for Android 14+ — keep your usual keyboard.** Tap Murmur’s floating bubble, dictate a reply, then tap again. Your words appear directly in the focused field. Speech recognition, optional screen-aware OCR, and fine-tuned LLM cleanup all run on the phone with no internet connection.
+[![Latest Release](https://img.shields.io/github/v/release/freQuensy23-coder/murmur?style=flat-square&color=6366f1&label=Release)](https://github.com/freQuensy23-coder/murmur/releases/latest)
+[![Android 14+](https://img.shields.io/badge/Android-14%2B-3ddc84?style=flat-square&logo=android&logoColor=white)](https://github.com/freQuensy23-coder/murmur/releases/latest)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square)](LICENSE)
+[![Obtainium](https://img.shields.io/badge/Obtainium-Auto--updates-7c3aed?style=flat-square)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)
 
-<p align="center">
-  <img src="docs/readme/demo.gif" alt="Murmur offline dictation demo in Airplane Mode" width="320" />
-</p>
+[Download Latest APK](https://github.com/freQuensy23-coder/murmur/releases/latest) · [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur) · [По-русски](README.ru.md)
 
-## Try it on your phone
+<br />
 
-Install the signed [v0.2.1 release APK](https://github.com/freQuensy23-coder/murmur/releases/tag/v0.2.1) (or add the repo to [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)) on **Android 14 or newer**. Follow the setup prompts for the microphone, floating bubble and accessibility service, download the default **Speech + Murmur Cleanup** pack on Wi-Fi, then try a sentence in the practice field before switching to a messaging app.
+<img src="docs/readme/demo.gif" alt="Murmur offline voice dictation in Airplane Mode" width="760" />
 
-Screen context (RAM-only OCR) and dictated audio are processed entirely on the device. You can also switch to **Speech only** or pick any other speech/cleanup model in the Model Hub.
+</div>
+
+---
+
+Tap a floating bubble in any app, speak naturally, and tap again — clean, punctuated text lands directly in the focused field. Speech recognition, optional screen-aware OCR, and fine-tuned LLM cleanup all run locally on your phone with zero cloud calls.
+
+## Why Murmur
+
+- **Keep your keyboard** — floats over Google Messages, Telegram, Slack, Gmail, Notes, or any other app without replacing Gboard or Samsung Keyboard.
+- **100% offline** — ASR, VAD, optional OCR, and cleanup LLM all run on-device. Works in Airplane Mode; no account, no telemetry.
+- **Smart LLM cleanup** — a fine-tuned local model strips filler words, fixes punctuation and casing, and polishes phrasing while preserving your meaning.
+- **Screen-aware, RAM-only** — optional on-device OCR reads names and terms from the current screen into RAM only (never written to disk, never sent anywhere).
+- **Swappable models & on-device benchmarks** — pick ASR and cleanup engines in the Model Hub and benchmark CPU vs. Qualcomm NPU directly on your phone.
+
+## Install
+
+Requires **Android 14+**.
+
+- **Direct APK:** download the signed `release.apk` from [GitHub Releases](https://github.com/freQuensy23-coder/murmur/releases/latest).
+- **Auto-updates:** add Murmur in [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur).
+
+**First run:**
+1. Grant microphone, floating bubble (overlay), and accessibility permissions.
+2. Download the default **Speech + Murmur Cleanup** pack on Wi-Fi (or choose **Speech only**).
+3. Focus any text field and tap the floating `m` bubble to dictate.
 
 ## Inside the app
 
-![Cropped Android emulator screenshots: Welcome explains the bubble, Practice shows an inserted test sentence, and Models lists speech engines](docs/readme/gallery.webp)
-*Android emulator captures with sample data. Open a full screen: [Welcome](docs/readme/welcome.webp) · [Practice](docs/readme/practice.webp) · [Models](docs/readme/models.webp).*
+<p align="center">
+  <img src="docs/readme/gallery.webp" alt="Murmur screens: Welcome, Practice, and Model Hub" width="760" />
+</p>
 
-**History** lets you replay a saved recording and retry a dictation. **Models** lets you download engines and compare their speed on your own phone. **Settings** is where you choose what screen context cleanup can use.
+- **History** — replay saved audio clips, inspect raw vs. cleaned text, and retry with a different model.
+- **Model Hub** — download, switch, and benchmark speech & cleanup models on your own hardware.
+- **Settings** — control screen-context OCR scope, cleanup style, and trigger behavior.
 
-## What has actually run on a phone?
+## On-device stack
 
-On a **Galaxy S25 Ultra**, Murmur transcribed a prerecorded Russian sentence with no word errors, read nine words from the screen, and inserted the result into another app’s test field with Samsung Keyboard. With optional cleanup on, the field updated **815 ms after stop** in that run. The test used software start/stop and prerecorded audio; it does not establish microphone quality, bubble usability or Fold7 behavior.
+| Stage | Models / Runtime | Acceleration |
+| --- | --- | --- |
+| **Speech (ASR)** | Parakeet TDT 0.6B v3, GigaAM v3, Nemotron Streaming (ONNX / Sherpa) | CPU & Qualcomm NPU |
+| **Voice Activity** | Silero VAD v5 | CPU |
+| **Text Cleanup** | Fine-tuned Qwen3.5 / LFM (GGUF via `llama.cpp`) | CPU & Qualcomm NPU |
+| **Screen OCR** *(optional)* | PP-OCRv5 / PP-OCRv6 (RAM-only) | CPU & Qualcomm NPU |
 
-![Standalone screen recognition on Galaxy S25 Ultra. Detection: CPU 34.40 ms, NPU 2.79 ms. Recognition: CPU 12.41 ms, NPU 3.15 ms.](docs/readme/ocr-times.png)
-*Separate OCR benchmark, not whole-dictation latency: median of seven warm runs per engine on the same input. The Qualcomm accelerator ran without CPU fallback.*
+<details>
+<summary><strong>On-device benchmarks (Galaxy S25 Ultra)</strong></summary>
 
-[How the pipeline works](docs/ARCHITECTURE.md) · [Build from source](docs/dev/BUILD.md) · [Model catalog](core/catalog/src/main/resources/catalog/catalog.json) · [Physical-device checklist](docs/DEVICE_CHECKLIST.md)
+<br />
 
-[Apache-2.0](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md). Downloadable models retain their own licenses.
+- End-to-end stop-to-insert latency with cleanup enabled: **~815 ms** on Galaxy S25 Ultra.
+- Standalone screen OCR (median of 7 warm runs, Qualcomm NPU without CPU fallback):
+  - Detection: **2.79 ms** NPU vs. **34.40 ms** CPU
+  - Recognition: **3.15 ms** NPU vs. **12.41 ms** CPU
+
+<p align="center">
+  <img src="docs/readme/ocr-times.png" alt="Galaxy S25 Ultra OCR latency: CPU vs NPU" width="640" />
+</p>
+
+</details>
+
+## Documentation & Building
+
+- [Architecture & pipeline](docs/ARCHITECTURE.md)
+- [Build from source](docs/dev/BUILD.md)
+- [Model catalog](core/catalog/src/main/resources/catalog/catalog.json)
+
+## License
+
+[Apache-2.0](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md). Downloadable models retain their respective licenses.

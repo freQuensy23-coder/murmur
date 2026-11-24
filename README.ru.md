@@ -1,33 +1,89 @@
+<div align="center">
+
+<img src="fastlane/metadata/android/en-US/images/icon.png" alt="Иконка Murmur" width="88" />
+
 # Murmur
 
-[English](README.md) · [Скачать v0.2.1 APK](https://github.com/freQuensy23-coder/murmur/releases/download/v0.2.1/murmur-v0.2.1-release.apk) · [Все релизы](https://github.com/freQuensy23-coder/murmur/releases) · [Автообновления через Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)
+**100% офлайн-диктовка для Android — без замены вашей клавиатуры.**
 
-**Открытая 100% офлайн-диктовка для Android 14+ — без замены вашей клавиатуры.** Нажмите плавающую кнопку Murmur, надиктуйте ответ и нажмите ещё раз — чистый текст вставится прямо в поле ввода. Распознавание речи, локальный OCR экрана и дообученная LLM-автоправка работают на самом телефоне без интернета.
+[![Последний релиз](https://img.shields.io/github/v/release/freQuensy23-coder/murmur?style=flat-square&color=6366f1&label=Release)](https://github.com/freQuensy23-coder/murmur/releases/latest)
+[![Android 14+](https://img.shields.io/badge/Android-14%2B-3ddc84?style=flat-square&logo=android&logoColor=white)](https://github.com/freQuensy23-coder/murmur/releases/latest)
+[![Лицензия](https://img.shields.io/badge/License-Apache_2.0-blue?style=flat-square)](LICENSE)
+[![Obtainium](https://img.shields.io/badge/Obtainium-Автообновления-7c3aed?style=flat-square)](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)
+
+[Скачать APK](https://github.com/freQuensy23-coder/murmur/releases/latest) · [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur) · [English](README.md)
+
+<br />
+
+<img src="docs/readme/demo.gif" alt="Демо офлайн-диктовки Murmur в авиарежиме" width="760" />
+
+</div>
+
+---
+
+Нажмите плавающую кнопку в любом приложении, продиктуйте текст и нажмите ещё раз — чистый, расставленный по знакам ответ сразу появится в поле ввода. Распознавание речи, локальный OCR экрана и дообученная LLM-автоправка работают прямо на телефоне без интернета.
+
+## Почему Murmur
+
+- **Ваша клавиатура остаётся на месте** — плавающий пузырь работает поверх Telegram, Google Messages, Slack, Gmail и любых других приложений без замены Gboard или Samsung Keyboard.
+- **100% офлайн** — ASR, VAD, опциональный OCR и LLM-автоправка работают на устройстве. Работает в авиарежиме, без аккаунтов и телеметрии.
+- **Умная автоправка** — дообученная локальная LLM убирает слова-паразиты, расставляет пунктуацию и аккуратно чистит формулировки.
+- **Контекст экрана только в RAM** — опциональный локальный OCR читает имена и термины с экрана только в оперативной памяти (ничего не пишется на диск и никуда не отправляется).
+- **Выбор моделей и бенчмарки** — меняйте модели ASR и автоправки прямо в приложении и сравнивайте скорость CPU и Qualcomm NPU на своём телефоне.
+
+## Установка
+
+Требуется **Android 14+**.
+
+- **APK напрямую:** скачайте подписанный `release.apk` в [GitHub Releases](https://github.com/freQuensy23-coder/murmur/releases/latest).
+- **Автообновления:** добавьте репозиторий в [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur).
+
+**Первый запуск:**
+1. Выдайте разрешения на микрофон, показ поверх окон и службу специальных возможностей.
+2. Скачайте пакет **Speech + Murmur Cleanup** по Wi-Fi (или выберите **Speech only**).
+3. Нажмите в любое поле ввода и тапните по плавающей кнопке `m`.
+
+## Внутри приложения
 
 <p align="center">
-  <img src="docs/readme/demo.gif" alt="Демо офлайн-диктовки Murmur в авиарежиме" width="320" />
+  <img src="docs/readme/gallery.webp" alt="Экраны Murmur: знакомство, практика и хаб моделей" width="760" />
 </p>
 
-## Попробовать на телефоне
+- **История** — прослушивание сохранённых записей, сравнение сырого и очищенного текста, повторная обработка другой моделью.
+- **Хаб моделей** — загрузка, переключение и замер скорости движков на вашем устройстве.
+- **Настройки** — выбор объёма контекста с экрана, стиля автоправки и поведения кнопки.
 
-Установите подписанный [релиз v0.2.1](https://github.com/freQuensy23-coder/murmur/releases/tag/v0.2.1) (или добавьте репозиторий в [Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)) на **Android 14 или новее**. Разрешите доступ к микрофону, показ плавающей кнопки и службу специальных возможностей, скачайте пакет **Speech + Murmur Cleanup** по Wi-Fi и проверьте в тренировочном поле.
+## Локальный стек
 
-Звук и контекст экрана (OCR хранится только в оперативной памяти) обрабатываются локально на устройстве. В хабе моделей можно выбрать любой движок распознавания или отключить автоправку (**Speech only**).
+| Этап | Модели / движок | Ускорение |
+| --- | --- | --- |
+| **Распознавание речи (ASR)** | Parakeet TDT 0.6B v3, GigaAM v3, Nemotron Streaming (ONNX / Sherpa) | CPU и Qualcomm NPU |
+| **Детектор речи (VAD)** | Silero VAD v5 | CPU |
+| **LLM-автоправка** | Дообученные Qwen3.5 / LFM (GGUF через `llama.cpp`) | CPU и Qualcomm NPU |
+| **OCR экрана** *(опционально)* | PP-OCRv5 / PP-OCRv6 (только в RAM) | CPU и Qualcomm NPU |
 
-## Как выглядит приложение
+<details>
+<summary><strong>Замеры на устройстве (Galaxy S25 Ultra)</strong></summary>
 
-![Три экрана приложения на эмуляторе Android: знакомство с кнопкой, вставленная тренировочная фраза и библиотека моделей](docs/readme/gallery.webp)
-*Снимки с эмулятора Android с тестовыми данными. Открыть целиком: [приветствие](docs/readme/welcome.webp) · [пробная диктовка](docs/readme/practice.webp) · [выбор модели](docs/readme/models.webp).*
+<br />
 
-В **истории** можно прослушать сохранённую запись и повторить распознавание. В **библиотеке моделей** — скачать движок и измерить его скорость на своём телефоне. В **настройках** — выбрать, какую информацию с экрана разрешено использовать для автоправки.
+- Полная задержка от нажатия «Стоп» до вставки текста с включённой автоправкой: **~815 мс** на Galaxy S25 Ultra.
+- Отдельный замер OCR экрана (медиана 7 прогретых прогонов, Qualcomm NPU без отката на CPU):
+  - Детекция: **2.79 мс** на NPU против **34.40 мс** на CPU
+  - Распознавание: **3.15 мс** на NPU против **12.41 мс** на CPU
 
-## Что проверили на реальном телефоне
+<p align="center">
+  <img src="docs/readme/ocr-times.png" alt="Замеры OCR на Galaxy S25 Ultra: CPU против NPU" width="640" />
+</p>
 
-На **Galaxy S25 Ultra** Murmur без ошибок распознал тестовую запись на русском, прочитал девять слов с экрана и через Samsung Keyboard вставил результат в поле другого приложения. С включённой автоправкой текст появился через **815 мс после остановки**. В этом прогоне запись подавалась из файла, а старт и остановка выполнялись программно. Микрофон, нажатие плавающей кнопки и поведение Fold7 при складывании ещё предстоит проверить.
+</details>
 
-![Чтение экрана на Galaxy S25 Ultra. Поиск текста: CPU 34,40 мс, NPU 2,79 мс. Распознавание: CPU 12,41 мс, NPU 3,15 мс.](docs/readme/ocr-times.png)
-*График показывает только чтение текста с экрана. Для каждого движка взята медиана семи повторов после прогрева на одинаковых данных. Ускоритель Qualcomm работал без подмены вычислений на CPU.*
+## Документация и сборка
 
-[Как устроена диктовка](docs/ARCHITECTURE.md) · [Сборка из исходников](docs/dev/BUILD.md) · [Каталог моделей](core/catalog/src/main/resources/catalog/catalog.json) · [Проверки на телефоне](docs/DEVICE_CHECKLIST.md)
+- [Архитектура и пайплайн](docs/ARCHITECTURE.md)
+- [Сборка из исходников](docs/dev/BUILD.md)
+- [Каталог моделей](core/catalog/src/main/resources/catalog/catalog.json)
 
-[Лицензия Apache-2.0](LICENSE) · [Сторонние компоненты](THIRD_PARTY_NOTICES.md). У скачиваемых моделей свои лицензии.
+## Лицензия
+
+[Apache-2.0](LICENSE) · [Сторонние компоненты](THIRD_PARTY_NOTICES.md). У скачиваемых моделей свои лицензии.
