@@ -159,6 +159,14 @@ class OverlayHost(
         root.setViewTreeLifecycleOwner(owners)
         root.setViewTreeSavedStateRegistryOwner(owners)
         root.setViewTreeViewModelStoreOwner(owners)
+        root.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
+            override fun onViewAttachedToWindow(v: View) {
+                if (attached && lastAppliedBubbleLp == null) positionBubble(lastShownVisual)
+            }
+            override fun onViewDetachedFromWindow(v: View) {
+                lastAppliedBubbleLp = null
+            }
+        })
         root.addView(composeView {
             val lv = levels.collectAsState()
             BubbleWindowContent(ui, dark, lv, monotonicClock, bubbleActions)
@@ -333,9 +341,8 @@ class OverlayHost(
         val visualTop = top + ((metrics.diameter - metrics.visualHeight(visual)) / 2f * d).roundToInt()
         bubbleLp.y = visualTop - (metrics.windowPadTop(visual) * d).roundToInt()
         val next = AppliedLp(bubbleLp.gravity, bubbleLp.x, bubbleLp.y, bubbleLp.flags)
-        if (next != lastAppliedBubbleLp) {
+        if (next != lastAppliedBubbleLp && update(root, bubbleLp)) {
             lastAppliedBubbleLp = next
-            update(root, bubbleLp)
         }
     }
 
@@ -559,9 +566,8 @@ class OverlayHost(
         else lp.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
     }
 
-    private fun update(view: View, lp: WindowManager.LayoutParams) {
-        if (attached && view.isAttachedToWindow) runCatching { wm.updateViewLayout(view, lp) }
-    }
+    private fun update(view: View, lp: WindowManager.LayoutParams): Boolean =
+        attached && view.isAttachedToWindow && runCatching { wm.updateViewLayout(view, lp) }.isSuccess
 
     private fun composeView(content: @androidx.compose.runtime.Composable () -> Unit) = ComposeView(ctx).apply {
         setViewTreeLifecycleOwner(owners)
