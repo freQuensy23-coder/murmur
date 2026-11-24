@@ -1,0 +1,11 @@
+Murmur is a 100% offline, open-source voice dictation tool for Android 14 and later.
+
+Leave the cursor where you want the words. Tap Murmur's floating bubble, dictate a reply, then tap again — your text appears directly in the focused field while you keep your usual keyboard.
+
+Features:
+- 100% on-device processing: speech recognition (Parakeet, GigaAM, Whisper, T-one, Qwen3-ASR) and optional local LLM cleanup (fine-tuned Qwen3.5 / LFM3) run entirely on your phone.
+- Floating overlay bubble: works over any messaging, notes, or email app without replacing your keyboard.
+- Optional screen-aware cleanup: reads visible terms with local on-device OCR (kept in RAM only, never saved) to fix names, punctuation, and filler words.
+- Model Hub with built-in on-device benchmarks: download only the models you want from Hugging Face and compare their speed on your hardware.
+- Private by design: no accounts, no analytics, no cloud APIs. Network access is used solely to download model files.
+- Dictation History with audio replay, Retry, and automatic retention cleanup.

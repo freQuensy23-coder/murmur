@@ -1,6 +1,6 @@
 # Murmur
 
-[English](README.md) · [Скачать тестовый APK](https://github.com/freQuensy23-coder/murmur/releases/download/test-56e9d4b/murmur-56e9d4b-speech-first.apk) · [О сборке](https://github.com/freQuensy23-coder/murmur/releases/tag/test-56e9d4b)
+[English](README.md) · [Релизы и APK](https://github.com/freQuensy23-coder/murmur/releases) · [Автообновления через Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)
 
 ![Murmur — голосовой ввод на самом телефоне, Android 14 и новее](docs/readme/cover.png)
 

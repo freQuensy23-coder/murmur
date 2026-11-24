@@ -26,13 +26,33 @@ android {
         applicationId = "app.murmur"
         minSdk = libs.versions.minSdk.get().toInt()
         targetSdk = libs.versions.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "0.1.0"
+        versionCode = providers.gradleProperty("murmur.versionCode").map { it.toInt() }.getOrElse(2)
+        versionName = providers.gradleProperty("murmur.versionName").getOrElse("0.2.0")
         // MurmurTestRunner = AndroidJUnitRunner + "-e murmurFake seeded|fresh|off" (debug fake container, WP-15 shell tests).
         testInstrumentationRunner = "app.murmur.shell.MurmurTestRunner"
         // D10: the product name lives in gradle.properties only.
         resValue("string", "app_name", productName)
         manifestPlaceholders["productName"] = productName
+    }
+
+    val releaseStoreFile = System.getenv("MURMUR_RELEASE_STORE_FILE")?.takeIf { it.isNotBlank() }?.let(::file)?.takeIf { it.isFile }
+    val releaseStorePassword = System.getenv("MURMUR_RELEASE_STORE_PASSWORD")
+    val releaseKeyAlias = System.getenv("MURMUR_RELEASE_KEY_ALIAS")
+    val releaseKeyPassword = System.getenv("MURMUR_RELEASE_KEY_PASSWORD")
+    val hasReleaseSigning = releaseStoreFile != null &&
+        !releaseStorePassword.isNullOrBlank() &&
+        !releaseKeyAlias.isNullOrBlank() &&
+        !releaseKeyPassword.isNullOrBlank()
+
+    if (hasReleaseSigning) {
+        signingConfigs {
+            create("release") {
+                storeFile = releaseStoreFile
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -44,6 +64,9 @@ android {
             ndk { abiFilters += listOf("arm64-v8a") }
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 
