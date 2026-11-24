@@ -1,0 +1,4 @@
+- Signed release APKs ready for direct install and Obtainium / IzzyOnDroid updates.
+- Published fine-tuned Murmur Cleanup models (Qwen3.5 2B, Qwen3.5 0.8B, LFM3 1.7B) in the Model Hub and onboarding.
+- Fixed floating bubble timer, removed redundant cancel button, and reduced overlay UI lag.
+- Improved cold-start ASR timeout handling and short-phrase recognition.

@@ -157,17 +157,44 @@ jobs:
           name: native-jnilibs
           path: .cache/native/jniLibs
       - uses: gradle/actions/setup-gradle@v4
+      - name: Decode release keystore
+        id: keystore
+        env:
+          KEYSTORE_B64: ${{ secrets.MURMUR_RELEASE_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            printf '%s' "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/murmur-release.jks"
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "store_file=$RUNNER_TEMP/murmur-release.jks" >> "$GITHUB_OUTPUT"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Assemble debug and release
+        env:
+          MURMUR_RELEASE_STORE_FILE: ${{ steps.keystore.outputs.store_file }}
+          MURMUR_RELEASE_STORE_PASSWORD: ${{ secrets.MURMUR_RELEASE_STORE_PASSWORD }}
+          MURMUR_RELEASE_KEY_ALIAS: ${{ secrets.MURMUR_RELEASE_KEY_ALIAS }}
+          MURMUR_RELEASE_KEY_PASSWORD: ${{ secrets.MURMUR_RELEASE_KEY_PASSWORD }}
         run: ./gradlew assembleDebug assembleRelease --stacktrace
       - name: Check that both APKs ship the engines
         run: |
           bash tools/e2e/check_apk_engines.sh app/build/outputs/apk/debug/app-debug.apk arm64-v8a x86_64
-          bash tools/e2e/check_apk_engines.sh app/build/outputs/apk/release/app-release-unsigned.apk arm64-v8a
+          if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
+            RELEASE_APK="app/build/outputs/apk/release/app-release.apk"
+          else
+            RELEASE_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
+          fi
+          bash tools/e2e/check_apk_engines.sh "$RELEASE_APK" arm64-v8a
+          bash tools/e2e/check_release_apk.sh --no-build "$RELEASE_APK"
       - name: Collect APKs
         run: |
           mkdir -p dist
           cp app/build/outputs/apk/debug/app-debug.apk "dist/murmur-${GITHUB_REF_NAME}-debug.apk"
-          cp app/build/outputs/apk/release/app-release-unsigned.apk "dist/murmur-${GITHUB_REF_NAME}-release-unsigned.apk"
+          if [ "${{ steps.keystore.outputs.signed }}" = "true" ]; then
+            cp app/build/outputs/apk/release/app-release.apk "dist/murmur-${GITHUB_REF_NAME}-release.apk"
+          else
+            cp app/build/outputs/apk/release/app-release-unsigned.apk "dist/murmur-${GITHUB_REF_NAME}-release-unsigned.apk"
+          fi
       - name: Attach APKs to the release
         uses: softprops/action-gh-release@v2
         with:

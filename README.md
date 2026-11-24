@@ -1,6 +1,6 @@
 # Murmur
 
-[По-русски](README.ru.md) · [Download the test APK](https://github.com/freQuensy23-coder/murmur/releases/download/test-56e9d4b/murmur-56e9d4b-speech-first.apk) · [Release notes](https://github.com/freQuensy23-coder/murmur/releases/tag/test-56e9d4b)
+[По-русски](README.ru.md) · [Latest Releases](https://github.com/freQuensy23-coder/murmur/releases) · [Auto-updates via Obtainium](https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/freQuensy23-coder/murmur)
 
 ![Murmur: on-device dictation for Android 14 and later](docs/readme/cover.png)
 
