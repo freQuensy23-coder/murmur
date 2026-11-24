@@ -130,13 +130,13 @@ class PromptEditorTest {
     fun aFineTuneProfileMakesTheEditorReadOnly() = runTest {
         val (w, e) = open(Settings(cleanup = fineTune, preferences = "Old"))
         val ui = e.ui.value
-        assertEquals("finetuned.v1", ui.profile.name)
+        assertEquals("finetuned.v2", ui.profile.name)
         assertFalse(ui.editable)
-        assertEquals(prompts.systemPrompt("finetuned.v1").trimEnd('\n'), ui.text)
+        assertEquals(prompts.systemPrompt("finetuned.v2").trimEnd('\n'), ui.text)
         assertEquals(PromptNotice.FINE_TUNE, ui.notice)
         assertFalse(ui.canReset)
         e.setText("changed")
-        assertEquals("the text cannot change", prompts.systemPrompt("finetuned.v1").trimEnd('\n'), e.ui.value.text)
+        assertEquals("the text cannot change", prompts.systemPrompt("finetuned.v2").trimEnd('\n'), e.ui.value.text)
         // My preferences still apply to every model.
         e.setPreferences("New")
         assertTrue(e.save())

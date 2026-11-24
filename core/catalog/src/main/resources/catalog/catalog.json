@@ -2845,9 +2845,9 @@
    "status": "available",
    "llm": {
     "template": "lfm3",
-    "promptProfile": "finetuned.v1",
+    "promptProfile": "finetuned.v2",
     "nCtx": 6144,
-    "prefixTokens": 102,
+    "prefixTokens": 121,
     "kvBytesPerToken": 12288
    },
    "artifacts": [
@@ -2913,9 +2913,9 @@
    "status": "available",
    "llm": {
     "template": "qwen3.5",
-    "promptProfile": "finetuned.v1",
+    "promptProfile": "finetuned.v2",
     "nCtx": 6144,
-    "prefixTokens": 97,
+    "prefixTokens": 116,
     "kvBytesPerToken": 12288
    },
    "artifacts": [
@@ -2981,9 +2981,9 @@
    "status": "available",
    "llm": {
     "template": "qwen3.5",
-    "promptProfile": "finetuned.v1",
+    "promptProfile": "finetuned.v2",
     "nCtx": 6144,
-    "prefixTokens": 97,
+    "prefixTokens": 116,
     "kvBytesPerToken": 12288
    },
    "artifacts": [

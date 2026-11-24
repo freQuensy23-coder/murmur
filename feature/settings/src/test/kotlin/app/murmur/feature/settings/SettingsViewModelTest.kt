@@ -252,7 +252,7 @@ class SettingsViewModelTest {
         assertTrue(state().previewText.startsWith("You are a dictation editor"))
         // A fine-tune as the cleanup model: its own prompt, not editable.
         w.settings.edit { it.copy(cleanup = CleanupChoice.Model(ModelId("murmur-cleanup-qwen3.5-2b")), promptOverride = null) }
-        assertEquals("finetuned.v1", state().profile.name)
+        assertEquals("finetuned.v2", state().profile.name)
         assertFalse(state().editable)
         assertEquals(PromptEditState.NOT_EDITABLE, state().state)
         w.settings.edit { it.copy(cleanup = CleanupChoice.None) }
@@ -263,7 +263,7 @@ class SettingsViewModelTest {
     fun promptEditorKeepsTheStockProfileWithoutAnActiveModel() = runTest {
         val catalog = app.murmur.testing.FakeCatalogRepository().catalog.value
         assertEquals("default.v1", SettingsViewModel.activeProfileName(Settings(), catalog))
-        assertEquals("finetuned.v1", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.Model(ModelId("murmur-cleanup-lfm3-1.7b"))), catalog))
+        assertEquals("finetuned.v2", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.Model(ModelId("murmur-cleanup-lfm3-1.7b"))), catalog))
         assertEquals("default.v1", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.Model(ModelId("qwen3.5-0.8b"))), catalog))
         assertEquals("default.v1", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.Model(ModelId("gone"))), catalog))
         assertEquals("default.v1", SettingsViewModel.activeProfileName(Settings(cleanup = CleanupChoice.None), catalog))

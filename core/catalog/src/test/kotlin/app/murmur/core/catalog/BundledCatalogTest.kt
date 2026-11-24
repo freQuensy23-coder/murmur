@@ -103,7 +103,7 @@ class BundledCatalogTest {
             assertEquals(it.id.value, GgufTemplates.STOCK_PROFILE, it.llm!!.promptProfile)
             assertEquals(it.id.value, 7_168, it.llm!!.nCtx)
         }
-        assertEquals("finetuned.v1", catalog.model(ModelId("murmur-cleanup-qwen3.5-2b"))!!.llm!!.promptProfile)
+        assertEquals("finetuned.v2", catalog.model(ModelId("murmur-cleanup-qwen3.5-2b"))!!.llm!!.promptProfile)
         assertTrue(catalog.model(ModelId("murmur-cleanup-qwen3-0.6b")) == null)
     }
 

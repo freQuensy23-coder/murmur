@@ -167,6 +167,9 @@ class DictationOrchestrator(
 
     // ================================================================ public API
 
+    /** Monotonic milliseconds sharing the exact origin of [DictationBubble.Listening.startedAtMs]. */
+    fun elapsedMs(): Long = deps.clock.elapsedMs()
+
     fun onInput(input: UserInput) {
         val at = deps.clock.elapsedMs()
         inbox.trySend { dispatch(DictationEvent.Input(input, at)) }
