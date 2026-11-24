@@ -30,5 +30,10 @@ class WerTest {
         assertEquals("empty", BenchValidity.llm(" ", true, 0, true))
         assertEquals("early_stop", BenchValidity.llm("Привет", true, 1, true))
         assertEquals("wrong_script", BenchValidity.llm("Hello, how are you?", true, 0, true))
+        // Soft prompt fallback (e.g. R7_distractor on both CPU and NPU) does not disqualify a unit unless CPU passed.
+        assertNull(BenchValidity.llm("Привет, как дела?", false, 0, true, guardReason = "R7_distractor", cpuGuardAccepted = false))
+        assertEquals("guard_fallback", BenchValidity.llm("Привет, как дела?", false, 0, true, guardReason = "R7_distractor", cpuGuardAccepted = true))
+        // Hard numeric/corruption guard failures always disqualify the unit.
+        assertEquals("guard_fallback", BenchValidity.llm("Привет, как дела?", false, 0, true, guardReason = "R4_loop", cpuGuardAccepted = false))
     }
 }

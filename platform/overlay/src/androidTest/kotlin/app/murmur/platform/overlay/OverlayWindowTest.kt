@@ -303,19 +303,17 @@ class OverlayWindowTest {
         waitUntil("Ready") { snap().visual == BubbleVisual.Ready }
         tap(centre(snap()))
         waitUntil("Tap sent") { inputs == listOf(UserInput.Tap) }
-        dictation.value = DictationBubble.Listening(startedAtMs = System.currentTimeMillis(), hold = false, warn = false)
-        waitUntil("cancel shown") { snap().cancelShown }
+        dictation.value = DictationBubble.Listening(startedAtMs = SystemClock.elapsedRealtime(), hold = false, warn = false)
+        waitUntil("listening shown") { snap().let { it.visual is BubbleVisual.Active && !it.cancelShown } }
         val s = snap()
         Shots.save("overlay-listening", checkNotNull(ua.takeScreenshot()))
-        // The cancel circle: 40 dp, its centre 50 dp - 20 dp above the pill top, 12 dp + 20 dp from the docked edge.
-        val d = ctx.resources.displayMetrics.density
-        val cancel = Pair(s.screenW - (32 * d), s.circleTop!! - 30 * d)
-        tap(cancel)
-        waitUntil("Cancel sent") { inputs.lastOrNull() == UserInput.Cancel }
+        // Tapping the Listening pill finishes dictation (no separate cancel cross above the pill).
+        tap(centre(s))
+        waitUntil("Stop tap sent") { inputs == listOf(UserInput.Tap, UserInput.Tap) }
         // Hold to talk on Ready: press >= 250 ms, release.
         kotlinx.coroutines.runBlocking { settings.update { it.copy(holdToTalk = true) } }
         dictation.value = DictationBubble.Idle
-        // Ready, drawn by its own (touchable) window, the cancel circle gone; then a beat for the pill -> circle relayout.
+        // Ready, drawn by its own (touchable) window; then a beat for the pill -> circle relayout.
         waitUntil("Ready again") { snap().let { it.visual == BubbleVisual.Ready && !it.cancelShown && it.rootAlpha == 1f } }
         SystemClock.sleep(300)
         val c = centre(snap())
@@ -386,8 +384,8 @@ class OverlayWindowTest {
         withoutHoldToTalk()
         onMain { host.updateVisibility(focusedInput()) }
         waitUntil("Ready") { snap().visual == BubbleVisual.Ready }
-        dictation.value = DictationBubble.Listening(startedAtMs = System.currentTimeMillis(), hold = false, warn = false)
-        waitUntil("Listening with cancel") { snap().let { it.cancelShown && it.visual is BubbleVisual.Active } }
+        dictation.value = DictationBubble.Listening(startedAtMs = SystemClock.elapsedRealtime(), hold = false, warn = false)
+        waitUntil("Listening") { snap().let { !it.cancelShown && it.visual is BubbleVisual.Active } }
         SystemClock.sleep(500)
         val s = snap(); log("listen-start", s)
         val d = ctx.resources.displayMetrics.density
@@ -408,7 +406,7 @@ class OverlayWindowTest {
         val body = accentPixels(shot, (to.first - 60 * d).roundToInt(), to.second.roundToInt(), (20 * d).roundToInt(), accent)
         assertTrue("accent pixels of the lifted pill's body: $body", body > (40 * d) * (40 * d) * 0.4f)
 
-        waitUntil("settled as Listening") { snap().let { it.visual is BubbleVisual.Active && it.rootAlpha == 1f && it.cancelShown } }
+        waitUntil("settled as Listening") { snap().let { it.visual is BubbleVisual.Active && it.rootAlpha == 1f && !it.cancelShown } }
         val after = snap(); log("listen-settled", after)
         assertNull("hiddenUntil", settings.settings.value.hiddenUntilEpochMs)
         assertFalse(after.snackbarShown)

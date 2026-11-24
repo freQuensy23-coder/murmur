@@ -390,7 +390,7 @@ private val STOP_FILL_DARK = Color(0x290B1033)
 @Composable
 private fun Timer(s: DictationBubble.Listening, m: BubbleMetrics, clock: () -> Long) {
     val c = MurmurTheme.colors
-    var now by remember { mutableLongStateOf(clock()) }
+    var now by remember(s.startedAtMs) { mutableLongStateOf(clock()) }
     LaunchedEffect(s.startedAtMs, s.frozenAtMs) {
         if (s.frozenAtMs != null) return@LaunchedEffect
         while (true) {
@@ -402,10 +402,10 @@ private fun Timer(s: DictationBubble.Listening, m: BubbleMetrics, clock: () -> L
     val text = formatElapsed((s.frozenAtMs ?: now) - s.startedAtMs)
     if (s.warn) {
         // DESIGN 5.5: the timer turns warn at 4:30. warn on warnSoft keeps >= 4.7:1 on the accent pill.
-        Text(text, style = BubbleType.timer(m.scale), color = c.warn, maxLines = 1,
+        Text(text, style = BubbleType.timer(m.scale), color = c.warn, maxLines = 1, softWrap = false,
             modifier = Modifier.background(c.warnSoft, RoundedCornerShape(6.dp)).padding(horizontal = 4.dp))
     } else {
-        Text(text, style = BubbleType.timer(m.scale), color = c.onAccent, maxLines = 1)
+        Text(text, style = BubbleType.timer(m.scale), color = c.onAccent, maxLines = 1, softWrap = false)
     }
 }
 

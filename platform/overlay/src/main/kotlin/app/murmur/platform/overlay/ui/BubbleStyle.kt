@@ -1,7 +1,7 @@
 package app.murmur.platform.overlay.ui
 
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Outline
@@ -56,20 +56,24 @@ internal object BubbleType {
  * the prototype's dark shadow alphas (40% / 45%).
  */
 internal fun Modifier.bubbleShadow(shape: Shape, dark: Boolean, reachPx: Float, enabled: Boolean = true): Modifier =
-    if (!enabled || reachPx <= 0f) this else drawBehind {
+    if (!enabled || reachPx <= 0f) this else drawWithCache {
         val outline = shape.createOutline(size, layoutDirection, this)
-        // (y offset, blur) as shares of the band, and the layer's alpha.
-        val layers = listOf(
-            Triple(0.15f, 0.50f, if (dark) 0.40f else 0.08f),
-            Triple(0.35f, 0.65f, if (dark) 0.45f else 0.10f),
-        )
-        drawIntoCanvas { canvas ->
-            val paint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG)
-            // Near-invisible fill: the shadow layer needs something drawn; the background paints over it.
-            paint.color = Color.Black.copy(alpha = 0.004f).toArgb()
-            for ((dyShare, blurShare, alpha) in layers) {
-                paint.setShadowLayer(reachPx * blurShare, 0f, reachPx * dyShare, Color.Black.copy(alpha = alpha).toArgb())
-                drawOutline(canvas.nativeCanvas, outline, size, paint)
+        val fillColor = Color.Black.copy(alpha = 0.004f).toArgb()
+        val a1 = Color.Black.copy(alpha = if (dark) 0.40f else 0.08f).toArgb()
+        val a2 = Color.Black.copy(alpha = if (dark) 0.45f else 0.10f).toArgb()
+        val p1 = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = fillColor
+            setShadowLayer(reachPx * 0.50f, 0f, reachPx * 0.15f, a1)
+        }
+        val p2 = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = fillColor
+            setShadowLayer(reachPx * 0.65f, 0f, reachPx * 0.35f, a2)
+        }
+        onDrawBehind {
+            drawIntoCanvas { canvas ->
+                val nc = canvas.nativeCanvas
+                drawOutline(nc, outline, size, p1)
+                drawOutline(nc, outline, size, p2)
             }
         }
     }

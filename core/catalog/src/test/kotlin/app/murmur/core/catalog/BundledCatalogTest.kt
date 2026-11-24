@@ -155,6 +155,20 @@ class BundledCatalogTest {
         for (m in catalog.models) for (a in m.artifacts) for (u in a.units)
             assertTrue("${a.id}/$u", MemoryEstimate.mb(m, a, u) > 0 && a.memoryMb[u] != null)
     }
+
+    @Test
+    fun finetunedCleanupModelsAreAvailableFromOwnerHfRepo() {
+        for (id in listOf("murmur-cleanup-lfm3-1.7b", "murmur-cleanup-qwen3.5-0.8b", "murmur-cleanup-qwen3.5-2b")) {
+            val m = catalog.model(ModelId(id))!!
+            assertEquals(id, Status.AVAILABLE, m.status)
+            assertEquals(id, 1, m.artifacts.size)
+            val f = m.artifacts.single().files.single()
+            assertEquals(id, "satoshiNakomoroReal/murmur-cleanup", f.repo)
+            assertTrue(id, f.url.startsWith("https://huggingface.co/satoshiNakomoroReal/murmur-cleanup/resolve/"))
+            assertTrue(id, f.bytes > 100_000_000L)
+            assertEquals(id, 64, f.sha256.length)
+        }
+    }
 }
 
 /** build_catalog.py NPU_CTX_REPO (OWNER_QUESTIONS 17 answered 2026-11-20). */

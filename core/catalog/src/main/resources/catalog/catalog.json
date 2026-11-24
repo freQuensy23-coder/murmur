@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "catalogVersion": "2026-11-22.1",
+ "catalogVersion": "2026-11-24.1",
  "generated": "2026-11-20 by core/catalog/tools/build_catalog.py (network-verified)",
  "defaults": {
   "asr": {
@@ -2827,7 +2827,7 @@
    "family": "murmur-cleanup",
    "baseRepo": "LiquidAI/LFM3-1.7B",
    "params": 1728801536,
-   "paramsLabel": null,
+   "paramsLabel": "1.73B",
    "languages": {
     "codes": [
      "ru",
@@ -2838,19 +2838,54 @@
    },
    "license": {
     "id": "lfm-open-1.0 (derivative)",
+    "url": "https://huggingface.co/LiquidAI/LFM3-1.7B/blob/main/LICENSE",
     "note": "inherits US$10M revenue cap"
    },
-   "tier": "planned",
-   "status": "in_training",
+   "tier": "optional",
+   "status": "available",
    "llm": {
     "template": "lfm3",
     "promptProfile": "finetuned.v1",
     "nCtx": 6144,
-    "prefixTokens": 102
+    "prefixTokens": 102,
+    "kvBytesPerToken": 12288
    },
-   "artifacts": [],
+   "artifacts": [
+    {
+     "id": "murmur-cleanup-lfm3-1.7b@q4_0",
+     "runtime": "llama/gguf",
+     "format": "gguf",
+     "quant": "Q4_0",
+     "units": [
+      "npu",
+      "gpu",
+      "cpu"
+     ],
+     "files": [
+      {
+       "name": "model.gguf",
+       "url": "https://huggingface.co/satoshiNakomoroReal/murmur-cleanup/resolve/7c4391f5c5e5fe82dd321b21cb69fecd0b879883/murmur-lfm3-1.7b-lfm3-r16-Q4_0.gguf",
+       "bytes": 1049614912,
+       "sha256": "2d3ffe87ee0a50b2cb7ea1087d16f2a02bfd106841b8ec96047812134ade9d52",
+       "source": "huggingface",
+       "repo": "satoshiNakomoroReal/murmur-cleanup",
+       "revision": "7c4391f5c5e5fe82dd321b21cb69fecd0b879883",
+       "path": "murmur-lfm3-1.7b-lfm3-r16-Q4_0.gguf"
+      }
+     ],
+     "layout": {
+      "model": "model.gguf"
+     },
+     "memoryMb": {
+      "npu": 1136,
+      "gpu": 1136,
+      "cpu": 1480
+     },
+     "preferredUnit": "npu"
+    }
+   ],
    "evidence": "docs/research/verify/llm-npu.md",
-   "description": "Murmur's own cleanup fine-tune. Appears here when training is done."
+   "description": "Murmur's fine-tuned cleanup model based on LFM3 1.7B."
   },
   {
    "id": "murmur-cleanup-qwen3.5-0.8b",
@@ -2860,7 +2895,7 @@
    "family": "murmur-cleanup",
    "baseRepo": "Qwen/Qwen3.5-0.8B",
    "params": 873438784,
-   "paramsLabel": null,
+   "paramsLabel": "873M",
    "languages": {
     "codes": [
      "ru",
@@ -2871,19 +2906,54 @@
    },
    "license": {
     "id": "apache-2.0 (derivative)",
+    "url": "https://huggingface.co/Qwen/Qwen3.5-0.8B/blob/main/LICENSE",
     "note": "yes"
    },
-   "tier": "planned",
-   "status": "in_training",
+   "tier": "optional",
+   "status": "available",
    "llm": {
     "template": "qwen3.5",
     "promptProfile": "finetuned.v1",
     "nCtx": 6144,
-    "prefixTokens": 97
+    "prefixTokens": 97,
+    "kvBytesPerToken": 12288
    },
-   "artifacts": [],
+   "artifacts": [
+    {
+     "id": "murmur-cleanup-qwen3.5-0.8b@q4_0",
+     "runtime": "llama/gguf",
+     "format": "gguf",
+     "quant": "Q4_0",
+     "units": [
+      "npu",
+      "gpu",
+      "cpu"
+     ],
+     "files": [
+      {
+       "name": "model.gguf",
+       "url": "https://huggingface.co/satoshiNakomoroReal/murmur-cleanup/resolve/7c4391f5c5e5fe82dd321b21cb69fecd0b879883/murmur-qwen3.5-0.8b-q08-lora-Q4_0.gguf",
+       "bytes": 501450368,
+       "sha256": "eb5aab722d4b51ae36fb853e5aa1423fc5e891dace168a5c2f823a7efc6419b8",
+       "source": "huggingface",
+       "repo": "satoshiNakomoroReal/murmur-cleanup",
+       "revision": "7c4391f5c5e5fe82dd321b21cb69fecd0b879883",
+       "path": "murmur-qwen3.5-0.8b-q08-lora-Q4_0.gguf"
+      }
+     ],
+     "layout": {
+      "model": "model.gguf"
+     },
+     "memoryMb": {
+      "npu": 1036,
+      "gpu": 1036,
+      "cpu": 880
+     },
+     "preferredUnit": "cpu"
+    }
+   ],
    "evidence": "docs/research/verify/llm-npu.md",
-   "description": "Murmur's own cleanup fine-tune. Appears here when training is done."
+   "description": "Murmur's fine-tuned cleanup model based on Qwen3.5 0.8B."
   },
   {
    "id": "murmur-cleanup-qwen3.5-2b",
@@ -2893,7 +2963,7 @@
    "family": "murmur-cleanup",
    "baseRepo": "Qwen/Qwen3.5-2B",
    "params": 2274069824,
-   "paramsLabel": null,
+   "paramsLabel": "2.27B",
    "languages": {
     "codes": [
      "ru",
@@ -2904,19 +2974,54 @@
    },
    "license": {
     "id": "apache-2.0 (derivative)",
+    "url": "https://huggingface.co/Qwen/Qwen3.5-2B/blob/main/LICENSE",
     "note": "yes"
    },
-   "tier": "planned",
-   "status": "in_training",
+   "tier": "optional",
+   "status": "available",
    "llm": {
     "template": "qwen3.5",
     "promptProfile": "finetuned.v1",
     "nCtx": 6144,
-    "prefixTokens": 97
+    "prefixTokens": 97,
+    "kvBytesPerToken": 12288
    },
-   "artifacts": [],
+   "artifacts": [
+    {
+     "id": "murmur-cleanup-qwen3.5-2b@q4_0",
+     "runtime": "llama/gguf",
+     "format": "gguf",
+     "quant": "Q4_0",
+     "units": [
+      "npu",
+      "gpu",
+      "cpu"
+     ],
+     "files": [
+      {
+       "name": "model.gguf",
+       "url": "https://huggingface.co/satoshiNakomoroReal/murmur-cleanup/resolve/7c4391f5c5e5fe82dd321b21cb69fecd0b879883/murmur-qwen3.5-2b-q2-lora-Q4_0.gguf",
+       "bytes": 1202484864,
+       "sha256": "e688d485b11a8a9248a89b40505504362e2f40c996f2629625dbd38a3582b812",
+       "source": "huggingface",
+       "repo": "satoshiNakomoroReal/murmur-cleanup",
+       "revision": "7c4391f5c5e5fe82dd321b21cb69fecd0b879883",
+       "path": "murmur-qwen3.5-2b-q2-lora-Q4_0.gguf"
+      }
+     ],
+     "layout": {
+      "model": "model.gguf"
+     },
+     "memoryMb": {
+      "npu": 1536,
+      "gpu": 1536,
+      "cpu": 1536
+     },
+     "preferredUnit": "cpu"
+    }
+   ],
    "evidence": "docs/research/verify/llm-npu.md",
-   "description": "Murmur's own cleanup fine-tune. Appears here when training is done."
+   "description": "Murmur's fine-tuned cleanup model based on Qwen3.5 2B."
   }
  ]
 }

@@ -245,13 +245,14 @@ object DictationMachine {
         }
         val recorded = (stoppedAt - startedAt).coerceAtLeast(0)
         val tail = if (wholeRecording) recorded else minOf(recorded, c.asrMaxTailMs)
+        val finalBudget = c.asrFinalTimeoutMs(tail) + if (asr == AsrReadiness.Loading) c.scaled(c.asrLoadWaitMs) else 0L
         return Transition(
             DictationState.Finishing(s, mode, startedAt, stoppedAt, plan, engines),
             listOf(
                 Effect.StopCapture(s),
                 Effect.FinishAsr(s),
                 Effect.StartTimer(s, Timer.TRANSCRIBING_LABEL, c.scaled(c.transcribingLabelMs)),
-                Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(tail)),
+                Effect.StartTimer(s, Timer.ASR_FINAL, finalBudget),
                 Effect.CancelTimer(Timer.WARN),
                 Effect.CancelTimer(Timer.MAX_DURATION),
                 Effect.Haptic(HapticKind.CONFIRM),
@@ -284,6 +285,14 @@ object DictationMachine {
             }
             // Rows 51/52: inputs and external stops are ignored once the stop was received.
             is DictationEvent.Input, is DictationEvent.ExternalStop -> Transition(st)
+            is DictationEvent.AsrReady -> {
+                val eng = readiness(st.engines, e) ?: return Transition(st)
+                val effects = if (st.engines.asr == AsrReadiness.Loading) {
+                    val tail = minOf((st.stoppedAtMs - st.startedAtMs).coerceAtLeast(0), c.asrMaxTailMs)
+                    listOf(Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(tail)))
+                } else emptyList()
+                Transition(st.copy(engines = eng), effects)
+            }
             else -> readiness(st.engines, e)?.let { Transition(st.copy(engines = it)) } ?: Transition(st)
         }
     }

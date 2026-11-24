@@ -397,7 +397,14 @@ class DefaultBenchmarkRunner(
         val memory = unloadAndMeasure(unit, host, cold.baseline) { llm.unload() }
         val stats = done.stats
         val verdict = guarded { guard.guard(pre.transcript, done.text, case.context) }
-        val invalid = BenchValidity.llm(done.text, verdict.action == GuardAction.ACCEPT, stats.stopReason, expectCyrillic = true)
+        val invalid = BenchValidity.llm(
+            output = done.text,
+            guardAccepted = verdict.action == GuardAction.ACCEPT,
+            stopReason = stats.stopReason,
+            expectCyrillic = true,
+            guardReason = verdict.reason,
+            cpuGuardAccepted = if (unit == ComputeUnit.CPU) null else cpuGuardAccepted(entry),
+        )
         notes.putAll(memory.notes)
         notes[BenchNotes.LOAD_ENGINE_MS] = cold.info.loadMs.toString()
         notes[BenchNotes.LLM_PROMPT_TOKENS] = stats.promptTokens.toString()
@@ -440,6 +447,13 @@ class DefaultBenchmarkRunner(
         }
         return done ?: throw UnitFailure(MurmurError.LlmFailed("no_done"))
     }
+
+    /** Whether the latest CPU LLM record of the same model passed the guard (accelerators must not regress it). */
+    private suspend fun cpuGuardAccepted(entry: ModelEntry): Boolean? =
+        entry.artifacts.flatMap { guarded { records.latest(it.id).first() } }
+            .filter { it.unit == ComputeUnit.CPU && it.result is BenchmarkResultData.Llm }
+            .maxByOrNull { it.atEpochMs }
+            ?.let { (it.result as BenchmarkResultData.Llm).guardAction == "accept" }
 
     private fun perSecond(count: Int, ms: Double): Double = if (ms > 0 && count > 0) count * 1000.0 / ms else 0.0
 
