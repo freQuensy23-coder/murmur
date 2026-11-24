@@ -93,6 +93,7 @@ class SettingsStoreTest {
         retentionDays = 3,
         keepRecordings = false,
         asrModel = ModelId("gigaam-v3-rnnt"),
+        hebrewAsrModel = ModelId("zipformer2-66m-streaming-he"),
         cleanup = CleanupChoice.Model(ModelId("lfm3-1.7b")),
         unitPreference = mapOf(
             "lfm3-1.7b" to UnitPreference.Pinned(ComputeUnit.NPU),

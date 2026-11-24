@@ -229,7 +229,7 @@ class HubLogicTest {
 
     @Test
     fun everyCatalogModelProducesARowAndADetail() {
-        assertEquals(27, catalog.models.size)
+        assertEquals(29, catalog.models.size)
         val all = catalog.models.flatMap { it.artifacts.map { a -> a.id } }
         for (device in listOf(null, emulator, fold7)) for (states in listOf(emptyMap(), installed(all))) {
             val inp = input(device, states)
@@ -282,6 +282,19 @@ class HubLogicTest {
         assertEquals("1.17B", r2.params)
         val approx = catalog.models.first { it.paramsLabel?.startsWith("~") == true }
         assertTrue(HubLogic.row(approx, inp).params!!.startsWith("~"))
+        val heAsr = catalog.model(ModelId("zipformer2-66m-streaming-he"))!!
+        assertEquals(listOf("HE"), HubLogic.row(heAsr, inp).languages)
+        val girgur = catalog.model(ModelId("girgur-cleanup-qwen3.5-2b"))!!
+        val gRow = HubLogic.row(girgur, inp)
+        assertEquals(listOf("RU", "EN", "HE"), gRow.languages)
+        assertEquals(RowState.InTraining, gRow.state)
+        // Missing-language badges reflect user's enabled languages (e.g., HE enabled on a model without Hebrew).
+        val heInp = input(fold7, settings = Settings(languages = listOf("ru", "en", "he")))
+        assertEquals(listOf("he"), HubLogic.row(asr, heInp).missingLanguages)
+        assertEquals(emptyList<String>(), HubLogic.row(girgur, heInp).missingLanguages)
+        assertEquals(listOf("ru", "he"), HubLogic.row(noRu, heInp).missingLanguages)
+        assertEquals("he", HubLogic.languageProfile(listOf("he")))
+        assertEquals("ru+en", HubLogic.languageProfile(listOf("ru", "en", "he")))
     }
 
     @Test

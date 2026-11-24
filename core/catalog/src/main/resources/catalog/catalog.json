@@ -6,7 +6,8 @@
   "asr": {
    "ru+en": "parakeet-tdt-0.6b-v3",
    "en": "parakeet-tdt-0.6b-v3",
-   "ru": "gigaam-v3-e2e-rnnt"
+   "ru": "gigaam-v3-e2e-rnnt",
+   "he": "zipformer2-66m-streaming-he"
   },
   "vad": "silero-vad-v5",
   "ocrDet": "pp-ocrv6-tiny-det",
@@ -621,6 +622,98 @@
     {
      "id": "npu-port",
      "note": "Streaming graph does not compile strictly for HTP (19 partitions + CPU BatchNorm); CPU only for now."
+    }
+   ]
+  },
+  {
+   "id": "zipformer2-66m-streaming-he",
+   "kind": "asr",
+   "displayName": "Ivrit Zipformer2 66M (Hebrew)",
+   "publisher": "ivrit.ai",
+   "family": "zipformer2",
+   "baseRepo": "ivrit-ai/zipformer2-66m-streaming-he",
+   "description": "Streaming Hebrew speech recognition, CPU int8.",
+   "params": 66000000,
+   "paramsLabel": "66M",
+   "languages": {
+    "codes": [
+     "he"
+    ],
+    "count": 1,
+    "mode": "fixed"
+   },
+   "license": {
+    "id": "MIT"
+   },
+   "tier": "recommended",
+   "asr": {
+    "streaming": true,
+    "punctuation": false,
+    "casing": false
+   },
+   "artifacts": [
+    {
+     "id": "zipformer2-66m-streaming-he@onnx-int8",
+     "runtime": "sherpa/online-transducer",
+     "format": "sherpa-onnx",
+     "quant": "int8",
+     "units": [
+      "cpu"
+     ],
+     "files": [
+      {
+       "name": "encoder.int8.onnx",
+       "url": "https://huggingface.co/ivrit-ai/zipformer2-66m-streaming-he/resolve/ee769a2a13b887f91572eec349458bfb0fe79e7a/sherpa-onnx/encoder.int8.onnx",
+       "bytes": 70478964,
+       "sha256": "6c6febcb74a09435315a1d872a6539f6e7fc2c333533f14c74edc0e85c49ffcd",
+       "source": "huggingface",
+       "repo": "ivrit-ai/zipformer2-66m-streaming-he",
+       "revision": "ee769a2a13b887f91572eec349458bfb0fe79e7a",
+       "path": "sherpa-onnx/encoder.int8.onnx"
+      },
+      {
+       "name": "decoder.int8.onnx",
+       "url": "https://huggingface.co/ivrit-ai/zipformer2-66m-streaming-he/resolve/ee769a2a13b887f91572eec349458bfb0fe79e7a/sherpa-onnx/decoder.int8.onnx",
+       "bytes": 1049105,
+       "sha256": "feb03e7c8aa761593a9284a6fa1e91259be3702de75f630062256c1a59c5a906",
+       "source": "huggingface",
+       "repo": "ivrit-ai/zipformer2-66m-streaming-he",
+       "revision": "ee769a2a13b887f91572eec349458bfb0fe79e7a",
+       "path": "sherpa-onnx/decoder.int8.onnx"
+      },
+      {
+       "name": "joiner.int8.onnx",
+       "url": "https://huggingface.co/ivrit-ai/zipformer2-66m-streaming-he/resolve/ee769a2a13b887f91572eec349458bfb0fe79e7a/sherpa-onnx/joiner.int8.onnx",
+       "bytes": 771805,
+       "sha256": "1d2c6d8e6dabc5eb52de52e95718e9bdfbffbfe7ead3808fb5ffd74e83bd9cae",
+       "source": "huggingface",
+       "repo": "ivrit-ai/zipformer2-66m-streaming-he",
+       "revision": "ee769a2a13b887f91572eec349458bfb0fe79e7a",
+       "path": "sherpa-onnx/joiner.int8.onnx"
+      },
+      {
+       "name": "tokens.txt",
+       "url": "https://huggingface.co/ivrit-ai/zipformer2-66m-streaming-he/resolve/ee769a2a13b887f91572eec349458bfb0fe79e7a/sherpa-onnx/tokens.txt",
+       "bytes": 17086,
+       "sha256": "e4ebb5e72a6aeef47437a55fa2308ebbedb7c51c557de7a89bf965c23ea9af4a",
+       "source": "huggingface",
+       "repo": "ivrit-ai/zipformer2-66m-streaming-he",
+       "revision": "ee769a2a13b887f91572eec349458bfb0fe79e7a",
+       "path": "sherpa-onnx/tokens.txt"
+      }
+     ],
+     "layout": {
+      "encoder": "encoder.int8.onnx",
+      "decoder": "decoder.int8.onnx",
+      "joiner": "joiner.int8.onnx",
+      "tokens": "tokens.txt"
+     },
+     "options": {
+      "model_type": "zipformer2"
+     },
+     "memoryMb": {
+      "cpu": 180
+     }
     }
    ]
   },
@@ -2592,7 +2685,8 @@
    "languages": {
     "codes": [
      "ru",
-     "en"
+     "en",
+     "he"
     ],
     "mode": "auto",
     "count": 201,
@@ -3022,6 +3116,41 @@
    ],
    "evidence": "docs/research/verify/llm-npu.md",
    "description": "Murmur's fine-tuned cleanup model based on Qwen3.5 2B."
+  },
+  {
+   "id": "girgur-cleanup-qwen3.5-2b",
+   "kind": "llm",
+   "displayName": "Girgur Cleanup (Qwen3.5 2B)",
+   "publisher": "Murmur",
+   "family": "murmur-cleanup",
+   "baseRepo": "Qwen/Qwen3.5-2B",
+   "params": 2274069824,
+   "paramsLabel": "2.27B",
+   "languages": {
+    "codes": [
+     "ru",
+     "en",
+     "he"
+    ],
+    "mode": "auto",
+    "count": 3
+   },
+   "license": {
+    "id": "apache-2.0 (derivative)",
+    "url": "https://huggingface.co/Qwen/Qwen3.5-2B/blob/main/LICENSE",
+    "note": "yes"
+   },
+   "tier": "planned",
+   "status": "in_training",
+   "llm": {
+    "template": "qwen3.5",
+    "promptProfile": "finetuned.v2",
+    "nCtx": 6144,
+    "prefixTokens": 116,
+    "kvBytesPerToken": 12288
+   },
+   "artifacts": [],
+   "description": "Trilingual fine-tuned cleanup model (Russian, English, Hebrew) based on Qwen3.5 2B."
   }
  ]
 }

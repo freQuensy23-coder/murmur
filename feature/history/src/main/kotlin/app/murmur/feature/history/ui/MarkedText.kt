@@ -20,6 +20,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
@@ -58,7 +59,7 @@ internal fun MarkedText(
         }
     val content = @Composable {
         Text(
-            text, modifier = decorated, style = style, color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis,
+            text, modifier = decorated, style = style.copy(textDirection = TextDirection.Content), color = color, maxLines = maxLines, overflow = TextOverflow.Ellipsis,
             onTextLayout = { layout = it },
         )
     }
@@ -78,9 +79,9 @@ private inline fun forEachLineBox(l: TextLayoutResult, range: IntRange, block: (
         val s = maxOf(start, l.getLineStart(line))
         val e = minOf(end, l.getLineEnd(line, visibleEnd = true))
         if (s >= e) continue
-        val a = l.getHorizontalPosition(s, usePrimaryDirection = true)
-        val b = l.getBoundingBox(e - 1).right
-        block(minOf(a, b), maxOf(a, b), line)
+        val boxS = l.getBoundingBox(s)
+        val boxE = l.getBoundingBox(e - 1)
+        block(minOf(boxS.left, boxE.left), maxOf(boxS.right, boxE.right), line)
     }
 }
 

@@ -101,6 +101,7 @@ class BubbleController(private val clock: () -> Long, private val out: Output) {
     fun pressPolicy(region: TouchRegion, now: Long = clock()): PressPolicy {
         val none = PressPolicy(region, canTap = false, canHold = false, canDrag = false)
         if (region == TouchRegion.CANCEL) return PressPolicy(region, canTap = isTapListening(), canHold = false, canDrag = false)
+        if (region == TouchRegion.HEBREW) return PressPolicy(region, canTap = isHebrewToggleable(), canHold = false, canDrag = false)
         return when (val v = visual(now)) {
             BubbleVisual.Hidden, is BubbleVisual.Dragging -> none
             BubbleVisual.Rest -> PressPolicy(region, canTap = true, canHold = false, canDrag = true)
@@ -120,9 +121,13 @@ class BubbleController(private val clock: () -> Long, private val out: Output) {
 
     private fun isTapListening(): Boolean = (dictation as? DictationBubble.Listening)?.hold == false
 
+    private fun isHebrewToggleable(): Boolean =
+        (dictation as? DictationBubble.Listening)?.let { !it.hold && it.hebrewAvailable } == true
+
     /** Tap / TalkBack double-tap on [region] of the visual now shown. */
     fun onTap(region: TouchRegion, now: Long = clock()) {
         if (region == TouchRegion.CANCEL) { if (isTapListening()) out.send(UserInput.Cancel); return }
+        if (region == TouchRegion.HEBREW) { if (isHebrewToggleable()) out.send(UserInput.ToggleHebrew); return }
         when (val v = visual(now)) {
             BubbleVisual.Rest -> { lastInteractionMs = now; if (noFieldAlways(now)) restOpenedAtMs = now }
             BubbleVisual.Ready -> { lastInteractionMs = now; if (noFieldAlways(now)) restOpenedAtMs = now; out.send(UserInput.Tap) }

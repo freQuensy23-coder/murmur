@@ -112,40 +112,14 @@ class OnboardingFlowTest {
         backToApp()
         compose.waitForTag("ob-model")
 
-        // 5 Models: sizes appear after the device probe; the fake download walks through Preparing.
+        // 5 Models: sizes appear after the device probe; completing the download finishes onboarding directly.
         compose.waitForTag("ob-pack-recommended")
         Device.shot("ob-model")
         cta()
         compose.waitForTag("ob-dl-progress")
         Thread.sleep(2_500)
         Device.shot("ob-downloading")
-        compose.waitForTag("ob-ready", timeoutMs = 60_000)
-
-        // 6 Practice: the in-app bubble runs a fake dictation and inserts into the practice field.
-        Device.shot("ob-ready-empty")
-        val seen = java.util.Collections.synchronizedList(mutableListOf<String>())
-        val watch = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Default).launch {
-            container.orchestrator.state.collect { seen += it.javaClass.simpleName + (if (it is app.murmur.core.dictation.DictationState.Done) ":" + it.outcome else "") }
-        }
-        compose.onNodeWithTag("practice-bubble-ready").performClick()
-        compose.waitForTag("practice-bubble-listening")
-        Device.shot("ob-ready-listening")
-        Thread.sleep(1_500)
-        compose.onNodeWithTag("practice-bubble-listening").performClick()
-        try {
-            compose.waitForTag("practice-result", timeoutMs = 30_000)
-        } catch (e: Throwable) {
-            Device.shot("ob-ready-FAILED")
-            throw AssertionError("no result; states $seen", e)
-        }
-        val text = compose.onNodeWithTag("practice-field").fetchSemanticsNode().config.getOrNull(SemanticsProperties.EditableText)?.text
-        assertEquals("the practice field holds exactly the dictation", PracticeScreenTest.EXPECTED, text)
-        compose.onNodeWithTag("practice-result").assertIsDisplayed()
-        watch.cancel()
-        compose.waitForTag("practice-bubble-ready")
-        Device.shot("ob-ready")
-        cta()
-        compose.waitForTag("shell")
+        compose.waitForTag("shell", timeoutMs = 60_000)
         assertTrue(container.settings.settings.value.onboardingDone)
     }
 
@@ -201,6 +175,6 @@ class OnboardingFlowTest {
         Device.shot("ob-dlerror")
         cta()
         compose.waitForTag("ob-downloading")
-        compose.waitForTag("ob-ready", timeoutMs = 60_000)
+        compose.waitForTag("shell", timeoutMs = 60_000)
     }
 }

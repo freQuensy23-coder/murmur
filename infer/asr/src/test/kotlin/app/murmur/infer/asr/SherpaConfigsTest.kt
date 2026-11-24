@@ -24,7 +24,7 @@ class SherpaConfigsTest {
         val model = catalog.models.first { m -> m.artifacts.any { it.id.value == artifactId } }
         val a = model.artifacts.first { it.id.value == artifactId }
         return LoadSpec(model.kind, model.id, a.id, a.runtime, unit ?: a.units.first(),
-            "/m/$artifactId/", a.layout, a.maxWindowSec, options)
+            "/m/$artifactId/", a.layout, a.maxWindowSec, a.options + options)
     }
 
     @Test
@@ -92,6 +92,12 @@ class SherpaConfigsTest {
         assertEquals(8_000, t.featConfig.sampleRate)
         assertEquals("/m/t-one@onnx/model.onnx", t.modelConfig.toneCtc.model)
         assertFalse(t.enableEndpoint)
+        val he = SherpaConfigs.online(spec("zipformer2-66m-streaming-he@onnx-int8"), null)
+        assertEquals("cpu", he.modelConfig.provider)
+        assertEquals("zipformer2", he.modelConfig.modelType)
+        assertEquals("/m/zipformer2-66m-streaming-he@onnx-int8/sherpa-onnx/encoder.int8.onnx", he.modelConfig.transducer.encoder)
+        assertEquals("/m/zipformer2-66m-streaming-he@onnx-int8/sherpa-onnx/tokens.txt", he.modelConfig.tokens)
+        assertFalse(he.enableEndpoint)
     }
 
     @Test

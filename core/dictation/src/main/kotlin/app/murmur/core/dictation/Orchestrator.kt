@@ -2,6 +2,7 @@ package app.murmur.core.dictation
 
 import app.murmur.core.audio.PcmChunk
 import app.murmur.core.audio.PcmFormat
+import app.murmur.core.catalog.RuntimeKeys
 import app.murmur.core.catalog.UnitHealthRepository
 import app.murmur.core.context.BuiltInDenylist
 import app.murmur.core.context.ContextAssembler
@@ -23,6 +24,7 @@ import app.murmur.core.model.AudioKey
 import app.murmur.core.model.ComputeUnit
 import app.murmur.core.model.EntryId
 import app.murmur.core.model.InferProcess
+import app.murmur.core.model.Language
 import app.murmur.core.model.ModelKind
 import app.murmur.core.model.MurmurClock
 import app.murmur.core.model.MurmurError
@@ -396,6 +398,7 @@ class DictationOrchestrator(
                 r.finishJob = launchFor(r, { DictationEvent.AsrFailed(r.session, internal("asr", it)) }) { finishAsr(r) }
             }
             is Effect.RestartAsr -> runFor(effect.session)?.let { restartAsr(it, effect.thenFinish) }
+            is Effect.SwapAsr -> runFor(effect.session)?.let { swapAsr(it, effect.hebrew) }
             is Effect.ReloadLlm -> runFor(effect.session)?.let { r ->
                 r.models?.llm?.let { llm -> r.llmJob = launchFor(r, { DictationEvent.LlmLoadFailed(r.session, internal("llm", it)) }) { loadLlm(r, llm, reload = true) } }
             }
@@ -527,6 +530,8 @@ class DictationOrchestrator(
             !memoryAllows(r, llm) && deps.engines.asrHost.state.value !is HostState.Up -> "low_memory"
             else -> null
         }
+        val hebrewEnabled = settings.languages.any { Language.normalize(it) == Language.HE.code }
+        val hebrewAvailable = hebrewEnabled && models.hebrewAsr != null && models.hebrewAsr.modelId != models.asr.modelId
         val plan = SessionPlan(
             cleanup = skip == null,
             cleanupSkipReason = skip,
@@ -534,6 +539,8 @@ class DictationOrchestrator(
             screenshot = mode != StartMode.IN_APP && !retry && decision.takeScreenshot && settings.useScreen && models.ocrDet != null && models.ocrRec != null,
             asrUnit = models.asr.unit,
             speechMeasured = !models.asrTraits.streaming,
+            hebrewAvailable = hebrewAvailable,
+            hebrewSpeechMeasured = models.hebrewAsrTraits?.streaming == false,
         )
         r.plan = plan
         return DictationEvent.PreflightPassed(s, plan)
@@ -692,7 +699,7 @@ class DictationOrchestrator(
 
     /** New ASR session fed with the whole session buffer from sample 0, then attached to the live stream (no gap). */
     private suspend fun attachNewSession(r: SessionRun): Boolean {
-        val session = deps.engines.asr.startSession(sessionOptions(r.settings))
+        val session = deps.engines.asr.startSession(sessionOptions(r))
         if (r.ended) { session.cancel(); return false }
         for (chunk in r.buffer) session.accept(chunk)
         r.asrPid = (deps.engines.asrHost.state.value as? HostState.Up)?.pid
@@ -701,8 +708,50 @@ class DictationOrchestrator(
         return true
     }
 
-    /** A language hint only when exactly one dictation language is selected; otherwise the model detects it. */
-    private fun sessionOptions(s: Settings) = AsrSessionOptions(language = s.languages.singleOrNull())
+    /** A language hint only when exactly one dictation language applies; otherwise the model detects it. */
+    private fun sessionOptions(r: SessionRun): AsrSessionOptions {
+        if (r.hebrewActive) return AsrSessionOptions(language = Language.HE.code)
+        val langs = r.settings.languages.map(Language::normalize).distinct()
+        val effective = if (r.plan?.hebrewAvailable == true) langs.filter { it != Language.HE.code } else langs
+        return AsrSessionOptions(language = effective.singleOrNull())
+    }
+
+    /** Mid-recording עב toggle: swap :asr between primary and Hebrew ASR, replaying r.buffer from sample 0. */
+    private fun swapAsr(r: SessionRun, hebrew: Boolean) {
+        r.hebrewActive = hebrew
+        r.asrJob?.cancel()
+        r.asrSession?.cancel()
+        r.asrSession = null
+        r.asrSlot.value = AsrSlot.Loading
+        r.asrJob = launchFor(r, { DictationEvent.AsrLoadFailed(r.session, internal("asr", it)) }) {
+            val models = r.models ?: return@launchFor
+            val s = r.session
+            val targetSpec = if (hebrew) models.hebrewAsr ?: models.asr else models.asr
+            val targetFallback = if (hebrew) models.hebrewAsrFallback else models.asrFallback
+            val targetVad = if (RuntimeKeys.isBatchAsr(targetSpec.runtime)) models.vad else null
+            when (val res = keeper.loadAsr(targetSpec, targetFallback, targetVad)) {
+                is Outcome.Err -> {
+                    r.asrSlot.value = AsrSlot.Failed(res.error)
+                    if (!r.ocrLoaded.isCompleted) r.ocrLoaded.complete(false)
+                    post(DictationEvent.AsrLoadFailed(s, res.error))
+                }
+                is Outcome.Ok -> {
+                    r.asrSpec = res.value.spec
+                    r.asrFellBack = res.value.fellBack
+                    if (!attachNewSession(r)) {
+                        if (!r.ocrLoaded.isCompleted) r.ocrLoaded.complete(false)
+                        return@launchFor
+                    }
+                    post(DictationEvent.AsrReady(s, res.value.info, res.value.fellBack))
+                    if (!r.ocrLoaded.isCompleted) {
+                        val det = models.ocrDet
+                        val rec = models.ocrRec
+                        r.ocrLoaded.complete(r.plan?.screenshot == true && det != null && rec != null && keeper.loadOcr(det, rec))
+                    }
+                }
+            }
+        }
+    }
 
     private suspend fun loadLlm(r: SessionRun, llm: ActiveLlm, reload: Boolean) {
         val s = r.session
@@ -744,11 +793,13 @@ class DictationOrchestrator(
             }
             is Outcome.Ok -> {
                 val pre = deps.guard.precheck(res.value.text)
-                val t = if (pre.skip) res.value else res.value.copy(text = pre.transcript)
+                val base = if (pre.skip) res.value else res.value.copy(text = pre.transcript)
+                val usedHebrew = r.hebrewActive || (r.models?.hebrewAsr != null && r.asrSpec?.modelId == r.models?.hebrewAsr?.modelId)
+                val t = if (usedHebrew && base.language == null) base.copy(language = Language.HE.code) else base
                 r.transcript = t
                 // Only a transcript that goes on to Polishing is worth shutting :asr down for (row 26 ends the others).
                 val plan = r.plan
-                if (plan != null && !DictationMachine.isNoSpeech(t, pre.skip, plan, r.config)) loadDeferredLlm(r)
+                if (plan != null && !DictationMachine.isNoSpeech(t, pre.skip, plan, r.config, hebrewActive = r.hebrewActive)) loadDeferredLlm(r)
                 post(DictationEvent.TranscriptReady(s, t, pre.skip))
             }
         }
@@ -778,9 +829,11 @@ class DictationOrchestrator(
             val models = r.models ?: return@launchFor
             val s = r.session
             keeper.shutdown(InferProcess.ASR)
-            val primary = r.asrSpec ?: models.asr
-            val fallback = models.asrFallback.takeIf { primary == models.asr }
-            when (val res = keeper.loadAsr(primary, fallback, models.vad)) {
+            val primary = r.asrSpec ?: if (r.hebrewActive) models.hebrewAsr ?: models.asr else models.asr
+            val fallback = if (r.hebrewActive) models.hebrewAsrFallback.takeIf { primary == models.hebrewAsr }
+                else models.asrFallback.takeIf { primary == models.asr }
+            val vad = if (RuntimeKeys.isBatchAsr(primary.runtime)) models.vad else null
+            when (val res = keeper.loadAsr(primary, fallback, vad)) {
                 is Outcome.Err -> {
                     r.asrSlot.value = AsrSlot.Failed(res.error)
                     post(if (thenFinish) DictationEvent.AsrFailed(s, res.error) else DictationEvent.AsrLoadFailed(s, res.error))

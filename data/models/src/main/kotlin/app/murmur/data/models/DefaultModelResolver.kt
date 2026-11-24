@@ -26,6 +26,7 @@ import app.murmur.core.engine.LoadOptions
 import app.murmur.core.engine.LoadSpec
 import app.murmur.core.model.ArtifactId
 import app.murmur.core.model.ComputeUnit
+import app.murmur.core.model.Language
 import app.murmur.core.model.ModelId
 import app.murmur.core.model.ModelKind
 import app.murmur.core.model.MurmurError
@@ -92,6 +93,16 @@ class DefaultModelResolver(
 
         val (llm, llmUnavailable) = cleanupModel(c, dev, settings)
 
+        val hebrewEnabled = settings.languages.any { Language.normalize(it) == Language.HE.code }
+        val hebrewEntry = if (hebrewEnabled) hebrewSpeechModel(c, settings) else null
+        val hebrewRanked = hebrewEntry?.let { rank(it, dev, settings) }
+        val hebrewPrimary = hebrewRanked?.ranked?.firstOrNull()
+            ?.takeIf { !RuntimeKeys.isBatchAsr(it.artifact.runtime) || vad != null }
+        val hebrewFallback = if (hebrewRanked != null && hebrewPrimary != null) {
+            ArtifactSelector.fallbackAfter(hebrewRanked.ranked, hebrewPrimary)
+                ?.takeIf { !RuntimeKeys.isBatchAsr(it.artifact.runtime) || vad != null }
+        } else null
+
         return Outcome.Ok(
             ActiveModels(
                 asr = asr.spec(primary),
@@ -102,6 +113,9 @@ class DefaultModelResolver(
                 ocrRec = ocrRec,
                 llm = llm,
                 llmUnavailable = llmUnavailable,
+                hebrewAsr = hebrewPrimary?.let { hebrewRanked!!.spec(it) },
+                hebrewAsrFallback = hebrewFallback?.let { hebrewRanked!!.spec(it) },
+                hebrewAsrTraits = hebrewPrimary?.let { hebrewEntry!!.asr },
             ),
         )
     }
@@ -215,6 +229,12 @@ class DefaultModelResolver(
         return c.model(id)?.takeIf { it.selectableAsAsr }
     }
 
+    private fun hebrewSpeechModel(c: Catalog, settings: Settings): ModelEntry? {
+        settings.hebrewAsrModel?.let { id -> c.model(id)?.takeIf { it.selectableAsAsr }?.let { return it } }
+        val id = c.defaults.asr[Language.HE.code] ?: return null
+        return c.model(id)?.takeIf { it.selectableAsAsr }
+    }
+
     private suspend fun cleanupModel(c: Catalog, dev: DeviceProfile, settings: Settings): Pair<ActiveLlm?, String?> {
         val id: ModelId = when (val choice = settings.cleanup) {
             CleanupChoice.None -> return null to LLM_NONE
@@ -278,9 +298,12 @@ class DefaultModelResolver(
 
         /** Settings.languages -> catalog defaults.asr key. */
         fun languageProfile(languages: List<String>): String {
-            val ru = "ru" in languages
-            val en = "en" in languages
+            val codes = languages.mapTo(HashSet()) { Language.normalize(it) }
+            val ru = "ru" in codes
+            val en = "en" in codes
+            val he = "he" in codes
             return when {
+                he && !ru && !en -> "he"
                 ru && !en -> "ru"
                 en && !ru -> "en"
                 else -> "ru+en"
@@ -294,6 +317,7 @@ class DefaultModelResolver(
         fun loadSpec(entry: ModelEntry, a: Artifact, unit: ComputeUnit, installedDir: String): LoadSpec {
             val sub = a.layout[CatalogValidator.LAYOUT_DIR]
             val options = buildMap {
+                putAll(a.options)
                 entry.llm?.let { l ->
                     put(LoadOptions.N_CTX, l.nCtx.toString())
                     put(LoadOptions.THREADS, LLM_THREADS.toString())

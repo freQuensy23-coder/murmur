@@ -267,5 +267,22 @@ class InsertionLadderTest {
         assertTrue(InsertionLadder.verified(before = null, after = "there", text = "there"))
         val long = "й".repeat(2000)
         assertTrue(InsertionLadder.verified(before = "", after = long.takeLast(InsertionLadder.readWindow(long)), text = long))
+        // Invisible BiDi formatting marks added by RTL/mixed editors do not cause false verification failures.
+        assertTrue(InsertionLadder.verified(before = "", after = "\u200Fשלום עולם\u200E", text = "שלום עולם"))
+        assertTrue(InsertionLadder.verified(before = "Hi ", after = "Hi \u2067שלום\u2069 \u202Bעולם\u202C", text = "שלום עולם"))
+        assertFalse(InsertionLadder.verified(before = "\u200Fשלום", after = "\u200Eשלום", text = "שלום"))
+    }
+
+    @Test
+    fun rtlCommitWrappedWithBidiMarksDoesNotDoublePaste() = runTest {
+        val base = FakeField(this)
+        val bidiField = object : LadderField by base {
+            override suspend fun beforeCursor(maxChars: Int): String? =
+                base.beforeCursor(maxChars)?.let { if (it.isEmpty()) it else "\u200F$it\u2069" }
+        }
+        val r = ladder().run(bidiField, "שלום עולם")
+        assertEquals(InsertMethod.COMMIT_TEXT, r.method)
+        assertEquals(listOf(InsertMethod.COMMIT_TEXT), base.calls)
+        assertEquals("שלום עולם", base.text)
     }
 }

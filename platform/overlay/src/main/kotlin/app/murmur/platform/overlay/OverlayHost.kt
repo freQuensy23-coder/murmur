@@ -47,10 +47,10 @@ import app.murmur.core.store.SettingsRepository
 import app.murmur.platform.overlay.ui.BubbleActions
 import app.murmur.platform.overlay.ui.BubbleUi
 import app.murmur.platform.overlay.ui.BubbleWindowContent
-import app.murmur.platform.overlay.ui.CancelButton
 import app.murmur.platform.overlay.ui.DragLayer
 import app.murmur.platform.overlay.ui.DragScene
 import app.murmur.platform.overlay.ui.HiddenSnackbar
+import app.murmur.platform.overlay.ui.ListeningFloatingControls
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -123,6 +123,9 @@ class OverlayHost(
         metrics = BubbleMetrics.of(BubbleSize.STANDARD), reducedMotion = false, talkBack = false))
     private var dark by mutableStateOf(isDark(ctx.resources.configuration))
     private var cancelShown by mutableStateOf(false)
+    private var hebrewAvailable by mutableStateOf(false)
+    private var hebrewActive by mutableStateOf(false)
+    private var cancelRightEdge by mutableStateOf(true)
     private var dragScene by mutableStateOf<DragScene?>(null)
     private var snackText by mutableStateOf<String?>(null)
 
@@ -361,12 +364,16 @@ class OverlayHost(
     }
 
     private fun updateCancel(visual: BubbleVisual, dragging: Boolean) {
-        val listening = visual is BubbleVisual.Active && (visual.state as? DictationBubble.Listening)?.hold == false && !dragging
+        val listeningState = (visual as? BubbleVisual.Active)?.state as? DictationBubble.Listening
+        val listening = listeningState?.hold == false && !dragging
         val top = circleTop
         if (listening && cancelView == null && top != null) {
             ensureCancelView(top, touchable = true)
         }
         cancelShown = listening
+        hebrewAvailable = listeningState?.hebrewAvailable == true
+        hebrewActive = listeningState?.hebrewActive == true
+        cancelRightEdge = rightEdge
         val view = cancelView ?: return
         setTouchable(cancelLp, listening)
         if (top != null) positionCancel(top)
@@ -377,7 +384,17 @@ class OverlayHost(
         if (cancelView != null) return
         setTouchable(cancelLp, touchable)
         positionCancel(top)
-        cancelView = composeView { CancelButton(dark, cancelShown) { controller.onTap(TouchRegion.CANCEL) } }.also { v ->
+        cancelView = composeView {
+            ListeningFloatingControls(
+                dark = dark,
+                shown = cancelShown,
+                rightEdge = cancelRightEdge,
+                hebrewAvailable = hebrewAvailable,
+                hebrewActive = hebrewActive,
+                onCancel = { controller.onTap(TouchRegion.CANCEL) },
+                onToggleHebrew = { controller.onTap(TouchRegion.HEBREW) },
+            )
+        }.also { v ->
             v.addOnAttachStateChangeListener(object : View.OnAttachStateChangeListener {
                 override fun onViewAttachedToWindow(view: View) {
                     if (attached) applyCancelLayout(view)
@@ -738,6 +755,7 @@ class OverlayHost(
         val hiddenUntilMs: Long?,
         val snackbarShown: Boolean,
         val cancelShown: Boolean,
+        val hebrewToggleShown: Boolean = false,
         /** Alpha of the bubble window's root view (0 while hidden or while the drag layer draws the bubble). */
         val rootAlpha: Float,
         /** While dragging: the drag layer draws the working/result pill itself (not the Ready circle). */
@@ -755,6 +773,7 @@ class OverlayHost(
             yFraction = top?.let { BubblePlacement.fractionOf(it, input) },
             screenW = input.screenW, screenH = input.screenH, rotation = display.rotation, diameterPx = input.bubbleDiameterPx,
             hiddenUntilMs = controller.hiddenUntilMs, snackbarShown = snackView != null, cancelShown = cancelShown,
+            hebrewToggleShown = cancelShown && hebrewAvailable,
             rootAlpha = root.alpha,
             dragDrawsPill = dragScene?.pill != null,
             dragTargetShown = dragScene?.let { it.hideArmed && it.targetShown } == true,

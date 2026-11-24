@@ -76,11 +76,16 @@ internal object HubTexts {
         val n = pluralStringResource(R.plurals.lang_count, count, count)
         val ru = "ru" in codes
         val en = "en" in codes
+        val he = "he" in codes
         val lower = { code: String -> Locale.forLanguageTag(code).getDisplayLanguage(loc).let { if (loc.language == "ru") it else it.replaceFirstChar { c -> c.titlecase(loc) } } }
         return when {
+            ru && en && he -> stringResource(R.string.lang_including_three, n, lower("ru"), lower("en"), lower("he"))
             ru && en -> stringResource(R.string.lang_including_two, n, lower("ru"), lower("en"))
+            ru && he -> stringResource(R.string.lang_including_two, n, lower("ru"), lower("he"))
+            en && he -> stringResource(R.string.lang_including_two, n, lower("en"), lower("he"))
             ru -> stringResource(R.string.lang_including_one, n, lower("ru"))
             noRussianFlag -> stringResource(R.string.lang_not_listed, n, name("ru"))
+            he -> stringResource(R.string.lang_including_one, n, lower("he"))
             en -> stringResource(R.string.lang_including_one, n, lower("en"))
             else -> n
         }

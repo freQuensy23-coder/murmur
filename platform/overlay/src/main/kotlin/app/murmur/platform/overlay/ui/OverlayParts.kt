@@ -47,9 +47,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.murmur.core.dictation.DictationBubble
 import app.murmur.platform.overlay.BubbleMetrics
 import app.murmur.platform.overlay.BubblePlacement
@@ -60,6 +63,85 @@ import app.murmur.ui.design.MurmurTheme
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
+
+/**
+ * Floating controls above the Listening pill: always the x cancel button, and when Hebrew is enabled with an installed
+ * Hebrew ASR model, the clean "עב" toggle circle right next to it (docked side keeps x nearest the screen edge).
+ */
+@Composable
+fun ListeningFloatingControls(
+    dark: Boolean,
+    shown: Boolean,
+    rightEdge: Boolean,
+    hebrewAvailable: Boolean,
+    hebrewActive: Boolean,
+    onCancel: () -> Unit,
+    onToggleHebrew: () -> Unit,
+) {
+    if (!hebrewAvailable) {
+        CancelButton(dark, shown, onCancel)
+        return
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        if (rightEdge) {
+            HebrewToggleButton(dark, shown, hebrewActive, onToggleHebrew)
+            CancelButton(dark, shown, onCancel)
+        } else {
+            CancelButton(dark, shown, onCancel)
+            HebrewToggleButton(dark, shown, hebrewActive, onToggleHebrew)
+        }
+    }
+}
+
+/**
+ * Floating Hebrew ASR toggle button above the Listening pill: strictly "עב" (no localized label text). Active state
+ * uses inverse fill + accent ring.
+ */
+@Composable
+fun HebrewToggleButton(dark: Boolean, shown: Boolean, active: Boolean, onToggle: () -> Unit) {
+    MurmurTheme(darkTheme = dark) {
+        val desc = stringResource(if (active) R.string.bubble_hebrew_on_cd else R.string.bubble_hebrew_off_cd)
+        val alpha by animateFloatAsState(if (shown) 1f else 0f, tween(150), label = "hebrew")
+        val reach = with(LocalDensity.current) { ((BubbleMetrics.CANCEL_HIT - BubbleMetrics.CANCEL_DIAMETER) / 2f).dp.toPx() }
+        Box(
+            Modifier
+                .size(BubbleMetrics.CANCEL_HIT.dp)
+                .graphicsLayer { this.alpha = alpha }
+                .testTag(TAG_HEBREW)
+                .then(
+                    if (shown) Modifier
+                        .semantics { contentDescription = desc; selected = active }
+                        .clickable(role = Role.Button, onClick = onToggle)
+                    else Modifier.clearAndSetSemantics { },
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            HebrewCircle(active, Modifier.bubbleShadow(CircleShape, dark, reach))
+        }
+    }
+}
+
+/** Clean "עב" circle (40 dp): surface when off, inverse fill + 2 dp accent ring when active. */
+@Composable
+private fun HebrewCircle(active: Boolean, shadow: Modifier) {
+    val c = MurmurTheme.colors
+    Box(
+        Modifier
+            .size(BubbleMetrics.CANCEL_DIAMETER.dp)
+            .then(shadow)
+            .background(if (active) c.inverse else c.surface, CircleShape)
+            .border(if (active) 2.dp else 1.dp, if (active) c.accent else c.line, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = HEBREW_BADGE_TEXT,
+            style = BubbleType.label(1f).copy(fontSize = 14.sp, lineHeight = 16.sp, fontWeight = FontWeight.SemiBold),
+            color = if (active) c.onInverse else c.ink,
+            maxLines = 1,
+            softWrap = false,
+        )
+    }
+}
 
 /**
  * DESIGN 5.3 Listening: the cancel circle (40 dp visual, 48 dp hit, surface, x) that floats 50 dp above the pill. It
@@ -289,7 +371,8 @@ private fun LiftedPill(scene: DragScene, pill: BubbleUi, levels: State<FloatArra
     val inset = with(density) { m.cancelInset.dp.toPx() }
     val cancelD = with(density) { BubbleMetrics.CANCEL_DIAMETER.dp.toPx() }
     val cancelUp = with(density) { m.cancelOffsetY.dp.toPx() }
-    val listening = ((pill.visual as? BubbleVisual.Active)?.state as? DictationBubble.Listening)?.hold == false
+    val listeningState = (pill.visual as? BubbleVisual.Active)?.state as? DictationBubble.Listening
+    val listening = listeningState?.hold == false
     val noActions = remember {
         object : BubbleActions {
             override fun tap(region: TouchRegion) = Unit
@@ -323,16 +406,25 @@ private fun LiftedPill(scene: DragScene, pill: BubbleUi, levels: State<FloatArra
         }
     }
     if (listening) {
-        // The cancel circle rides 50 dp above, its docked-side edge 4 dp inside the pill's docked end.
-        Box(
+        val hebrewAvailable = listeningState?.hebrewAvailable == true
+        val hebrewActive = listeningState?.hebrewActive == true
+        val gap = with(density) { (BubbleMetrics.CANCEL_HIT - BubbleMetrics.CANCEL_DIAMETER).dp.toPx() }
+        val totalW = if (hebrewAvailable) cancelD * 2f + gap else cancelD
+        // The cancel circle (and optional "עב" toggle beside it) rides 50 dp above the pill.
+        Row(
             Modifier.offset {
                 val a = anchor.value
                 val leftAnchored = pos.value.x + inset
-                val rightAnchored = pos.value.x + d - inset - cancelD
+                val rightAnchored = pos.value.x + d - inset - totalW
                 IntOffset((leftAnchored + (rightAnchored - leftAnchored) * a).roundToInt(), (pos.value.y - cancelUp).roundToInt())
             },
+            horizontalArrangement = Arrangement.spacedBy((BubbleMetrics.CANCEL_HIT - BubbleMetrics.CANCEL_DIAMETER).dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
+            val rightAnchored = (scene.settleRightEdge ?: pill.rightEdge)
+            if (hebrewAvailable && rightAnchored) HebrewCircle(hebrewActive, Modifier.bubbleShadow(CircleShape, LocalDark.current, shadowReach))
             CancelCircle(Modifier.bubbleShadow(CircleShape, LocalDark.current, shadowReach))
+            if (hebrewAvailable && !rightAnchored) HebrewCircle(hebrewActive, Modifier.bubbleShadow(CircleShape, LocalDark.current, shadowReach))
         }
     }
 }
@@ -376,3 +468,5 @@ fun HiddenSnackbar(dark: Boolean, text: String, onUndo: () -> Unit) {
 const val TAG_UNDO = "bubble.undo"
 /** The lifted pill in the drag layer. */
 const val TAG_LIFTED = "bubble.lifted"
+const val TAG_HEBREW = "bubble.hebrew"
+internal const val HEBREW_BADGE_TEXT = "עב"

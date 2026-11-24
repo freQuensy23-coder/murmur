@@ -23,6 +23,8 @@
     <string name="bubble_ready_cd">Начать диктовку. Нажмите дважды, чтобы говорить, и ещё раз дважды, чтобы закончить</string>
     <string name="bubble_finish_cd">Закончить диктовку</string>
     <string name="bubble_cancel_cd">Отменить и не сохранять</string>
+    <string name="bubble_hebrew_off_cd">Переключить на иврит</string>
+    <string name="bubble_hebrew_on_cd">Иврит включён, переключить обратно</string>
     <string name="bubble_hold_live">Слушаю. Отпустите, чтобы закончить</string>
     <string name="bubble_copied_live">Скопировано в буфер обмена</string>
     <string name="bubble_drag_cd">Перетаскивание. Отпустите внизу, чтобы скрыть</string>

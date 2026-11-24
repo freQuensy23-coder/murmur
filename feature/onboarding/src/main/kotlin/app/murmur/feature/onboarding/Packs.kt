@@ -6,8 +6,10 @@ import app.murmur.core.catalog.DownloadPlanner
 import app.murmur.core.catalog.ModelEntry
 import app.murmur.core.catalog.Pack
 import app.murmur.core.catalog.PlannedDownload
+import app.murmur.core.catalog.Status
 import app.murmur.core.model.ArtifactId
 import app.murmur.core.model.ComputeUnit
+import app.murmur.core.model.Language
 import app.murmur.core.model.ModelId
 import app.murmur.core.model.ModelKind
 import app.murmur.core.model.MurmurError
@@ -29,15 +31,23 @@ data class PackOption(
     val llm: ModelEntry?,
     val totalBytes: Long,
     val remainingBytes: Long,
+    val hebrewAsr: ModelEntry? = null,
 ) {
     val artifacts: List<ArtifactId> get() = plan.map { it.artifact.id }
 }
 
 object PackPlanner {
+    private const val LIGHT_PACK_ID = "light"
+    private const val GIRGUR_LLM_ID = "girgur-cleanup-qwen3.5-2b"
+    private const val HEBREW_FALLBACK_LLM_ID = "qwen3.5-2b"
+
     /**
      * The packs this phone can use, in catalog order (the recommended one first when the catalog marks it). A pack
      * without a speech model this device can run is left out. Sizes are those of the artifact each item resolves to
      * with the device profile (await DeviceProfileRepository.ensure() first: the emulator and the Fold7 differ).
+     *
+     * When Hebrew ("he") is enabled in [settings.languages], the "light" (0.8B) pack is hidden, the Hebrew ASR model
+     * is added to the remaining packs, and the recommended pack uses Girgur (or Qwen3.5 2B until Girgur is available).
      */
     fun options(
         catalog: Catalog,
@@ -46,16 +56,49 @@ object PackPlanner {
         installed: Map<ArtifactId, InstallState> = emptyMap(),
     ): List<PackOption> {
         val pref: (ModelId) -> UnitPreference = { settings.unitPreference[it.value] ?: UnitPreference.Auto }
-        val packs = catalog.packs.sortedByDescending { it.recommended }
+        val normalized = settings.languages.map(Language::normalize).toSet()
+        val hebrewEnabled = Language.HE.code in normalized
+        val hebrewOnly = hebrewEnabled && normalized.size == 1
+        val hebrewAsrId = if (hebrewEnabled) {
+            settings.hebrewAsrModel?.takeIf { catalog.model(it)?.selectableAsAsr == true }
+                ?: catalog.defaults.asr[Language.HE.code]
+        } else null
+        val hebrewLlmId = if (hebrewEnabled) {
+            ModelId(GIRGUR_LLM_ID).takeIf { catalog.model(it)?.status == Status.AVAILABLE }
+                ?: ModelId(HEBREW_FALLBACK_LLM_ID).takeIf { catalog.model(it)?.status == Status.AVAILABLE }
+        } else null
+        val packs = catalog.packs
+            .filter { !hebrewEnabled || it.id != LIGHT_PACK_ID }
+            .sortedByDescending { it.recommended }
         return packs.mapNotNull { pack ->
-            val plan = DownloadPlanner.forPack(catalog, pack, device, settings.useScreen, pref)
+            val items = if (!hebrewEnabled) pack.items else buildList {
+                for (id in pack.items) {
+                    val entry = catalog.model(id)
+                    when (entry?.kind) {
+                        ModelKind.ASR -> {
+                            if (hebrewOnly) {
+                                hebrewAsrId?.let { add(it) }
+                            } else {
+                                add(id)
+                                hebrewAsrId?.takeIf { it != id }?.let { add(it) }
+                            }
+                        }
+                        ModelKind.VAD -> if (!hebrewOnly) add(id)
+                        ModelKind.LLM -> add(hebrewLlmId ?: id)
+                        else -> add(id)
+                    }
+                }
+            }.distinct()
+            val plan = DownloadPlanner.forModels(catalog, items, device, settings.useScreen, pref)
             val asr = plan.firstOrNull { it.reason == PlannedDownload.Reason.REQUESTED && catalog.model(it.model)?.kind == ModelKind.ASR }
                 ?.let { catalog.model(it.model) } ?: return@mapNotNull null
+            val hebrewAsr = hebrewAsrId?.takeIf { id -> plan.any { it.model == id } }?.let { catalog.model(it) }
             val llm = plan.firstOrNull { catalog.model(it.model)?.kind == ModelKind.LLM }?.let { catalog.model(it.model) }
             PackOption(
                 pack = pack, plan = plan, asr = asr, llm = llm,
                 totalBytes = DownloadPlanner.totalBytes(plan),
                 remainingBytes = plan.filter { installed[it.artifact.id] !is InstallState.Installed }.sumOf { it.artifact.downloadBytes },
+                hebrewAsr = hebrewAsr,
             )
         }
     }
@@ -64,11 +107,12 @@ object PackPlanner {
         options.firstOrNull { it.pack.recommended } ?: options.firstOrNull()
 
     /**
-     * The settings a chosen pack implies: its speech model, and its cleanup model (None for a speech-only pack), so
-     * that the first dictation uses what was downloaded.
+     * The settings a chosen pack implies: its speech model, its Hebrew speech model (when included), and its cleanup
+     * model (None for a speech-only pack), so that the first dictation uses what was downloaded.
      */
     fun applyChoice(settings: Settings, option: PackOption): Settings = settings.copy(
         asrModel = option.asr.id,
+        hebrewAsrModel = option.hebrewAsr?.id ?: settings.hebrewAsrModel,
         cleanup = option.llm?.let { CleanupChoice.Model(it.id) } ?: CleanupChoice.None,
     )
 }

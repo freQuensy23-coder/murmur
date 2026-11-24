@@ -150,6 +150,10 @@ data class ActiveModels(
     val llm: ActiveLlm?,
     /** cleanup_outcome code when [llm] is null: "none" (user chose None) or "no_model" (selected model not installed). */
     val llmUnavailable: String? = null,
+    /** Optional Hebrew ASR model resolved when "he" is enabled in settings (mid-recording עב toggle). */
+    val hebrewAsr: LoadSpec? = null,
+    val hebrewAsrFallback: LoadSpec? = null,
+    val hebrewAsrTraits: AsrTraits? = null,
 )
 
 data class ActiveLlm(

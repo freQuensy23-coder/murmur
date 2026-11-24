@@ -137,7 +137,8 @@ class InsertionLadder(
 
         /**
          * The text before the caret now ends with [text] and differs from what was there before: the insertion landed at
-         * the caret. Non-breaking spaces (contenteditable) compare as spaces.
+         * the caret. Non-breaking spaces (contenteditable) compare as spaces, and invisible Unicode BiDi formatting
+         * marks injected by RTL editors are stripped before comparison.
          */
         fun verified(before: String?, after: String?, text: String): Boolean {
             if (after == null) return false
@@ -146,6 +147,8 @@ class InsertionLadder(
             return before == null || norm(before) != a
         }
 
-        private fun norm(s: String) = s.replace(' ', ' ')
+        private val BIDI_FORMAT = Regex("[\u200E\u200F\u202A-\u202E\u2066-\u2069]")
+
+        private fun norm(s: String) = s.replace('\u00A0', ' ').replace(BIDI_FORMAT, "")
     }
 }

@@ -11,6 +11,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Spacer
@@ -50,6 +52,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.os.ConfigurationCompat
@@ -72,6 +75,7 @@ import app.murmur.ui.design.components.ButtonStyle
 import app.murmur.ui.design.components.Banner
 import app.murmur.ui.design.components.InsetDivider
 import app.murmur.ui.design.components.LinearProgress
+import app.murmur.ui.design.components.MurmurChip
 import app.murmur.ui.design.components.MurmurRadio
 import app.murmur.ui.design.components.MurmurSwitch
 import app.murmur.ui.design.components.Skeleton
@@ -84,16 +88,12 @@ import java.util.Locale
 internal fun OnboardingContent(
     state: OnboardingState,
     ctl: OnboardingController,
-    deps: OnboardingDeps,
     a: ObActions,
     wide: Boolean,
     modifier: Modifier = Modifier,
 ) {
     val models by ctl.models.collectAsStateWithLifecycle()
     val days by ctl.retentionDays.collectAsStateWithLifecycle()
-    val practice by ctl.practice.collectAsStateWithLifecycle()
-    val bubble by deps.bubble.collectAsStateWithLifecycle()
-    val levels by deps.levels.collectAsStateWithLifecycle()
     Box(modifier) {
         AnimatedContent(
             targetState = state.step,
@@ -110,7 +110,6 @@ internal fun OnboardingContent(
                 OnboardingStep.MODELS -> ModelsStep(wide, models, a)
                 OnboardingStep.DOWNLOADING -> Downloading(wide, models, a)
                 OnboardingStep.DOWNLOAD_PAUSED -> Paused(wide, models, a)
-                OnboardingStep.READY -> Ready(wide, bubble, levels, deps.clock, practice, a)
             }
         }
     }
@@ -322,6 +321,13 @@ private fun Battery(wide: Boolean, a: ObActions) {
 
 // ------------------------------------------------------------------ 5 models
 
+private val ONBOARDING_LANGUAGE_CHIPS = listOf(
+    "ru" to "Русский",
+    "en" to "English",
+    "he" to "עברית",
+)
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ModelsStep(wide: Boolean, m: ModelsUi, a: ObActions) {
     val c = MurmurTheme.colors
@@ -342,9 +348,25 @@ private fun ModelsStep(wide: Boolean, m: ModelsUi, a: ObActions) {
         Kicker(kicker(4), top = 20.dp)
         ObTitle(stringResource(R.string.ob_models_title))
         Lead(stringResource(R.string.ob_models_lead, name))
+        FlowRow(
+            Modifier.padding(top = 14.dp).fillMaxWidth().testTag("ob-languages"),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            ONBOARDING_LANGUAGE_CHIPS.forEach { (code, label) ->
+                val on = code in m.languages
+                MurmurChip(
+                    label = label,
+                    onClick = { a.setLanguage(code, !on) },
+                    selected = on,
+                    enabled = !(on && m.languages.size == 1),
+                    modifier = Modifier.testTag("ob-lang-$code"),
+                )
+            }
+        }
         Column(
             Modifier
-                .padding(top = 20.dp)
+                .padding(top = 12.dp)
                 .fillMaxWidth()
                 .clip(MurmurShapes.lg)
                 .background(c.surface)
@@ -381,7 +403,10 @@ private fun ModelsStep(wide: Boolean, m: ModelsUi, a: ObActions) {
                         MurmurRadio(on, null, Modifier.padding(top = 2.dp))
                         Column(Modifier.weight(1f)) {
                             Text(o.pack.title, style = t.rowTitle, color = c.ink)
-                            val sub = o.llm?.let { stringResource(R.string.ob_models_pack_sub, o.asr.displayName, it.displayName) } ?: o.asr.displayName
+                            val speechNames = if (o.hebrewAsr != null && o.hebrewAsr.id != o.asr.id) {
+                                "${o.asr.displayName} + ${o.hebrewAsr.displayName}"
+                            } else o.asr.displayName
+                            val sub = o.llm?.let { stringResource(R.string.ob_models_pack_sub, speechNames, it.displayName) } ?: speechNames
                             Text(sub, style = t.rowSub, color = c.ink3, modifier = Modifier.padding(top = 2.dp))
                         }
                         Text(
@@ -416,7 +441,7 @@ private fun Downloading(wide: Boolean, m: ModelsUi, a: ObActions) {
     val loc = locale()
     val s = m.summary
     ObFrame(wide, dotIndex = 4, testTag = "ob-downloading", foot = {
-        SecondaryCta(stringResource(R.string.ob_dl_continue), a.continueToPractice, "ob-cta", style = ButtonStyle.Secondary)
+        SecondaryCta(stringResource(R.string.ob_dl_continue), a.continueSetup, "ob-cta", style = ButtonStyle.Secondary)
         SecondaryCta(stringResource(R.string.ob_dl_pause), a.pause, "ob-secondary")
     }) {
         Kicker(kicker(4), top = 20.dp)
@@ -523,7 +548,7 @@ private fun Paused(wide: Boolean, m: ModelsUi, a: ObActions) {
     ObFrame(wide, dotIndex = 4, testTag = "ob-dlerror", foot = {
         PrimaryCta(stringResource(R.string.ob_paused_retry), a.retry, "ob-cta", icon = MurmurIcons.refresh)
         if (s?.speechReady == true && s.cleanupPending != null) {
-            SecondaryCta(stringResource(R.string.ob_paused_without_cleanup), a.continueToPractice, "ob-secondary")
+            SecondaryCta(stringResource(R.string.ob_paused_without_cleanup), a.continueSetup, "ob-secondary")
         }
     }) {
         Kicker(kicker(4), top = 20.dp)
@@ -590,7 +615,7 @@ internal fun Ready(
             BasicTextField(
                 value = field.value,
                 onValueChange = { field.value = it },
-                textStyle = t.entry.copy(color = c.ink),
+                textStyle = t.entry.copy(color = c.ink, textDirection = TextDirection.Content),
                 cursorBrush = SolidColor(c.accent),
                 modifier = Modifier
                     .fillMaxWidth()

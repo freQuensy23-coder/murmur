@@ -89,6 +89,30 @@ class PacksTest {
     }
 
     @Test
+    fun enablingHebrewHidesLightPackAndIncludesHebrewAsrAndQwen2b() {
+        val base = PackPlanner.options(catalog, emulator, Settings())
+        val heSettings = Settings(languages = listOf("ru", "en", "he"))
+        val heOpts = PackPlanner.options(catalog, emulator, heSettings)
+        assertEquals(listOf("recommended", "speech-only"), heOpts.map { it.pack.id })
+        val rec = heOpts.first { it.pack.id == "recommended" }
+        val speech = heOpts.first { it.pack.id == "speech-only" }
+        val heArt = ArtifactId("zipformer2-66m-streaming-he@onnx-int8")
+        assertEquals(ModelId("zipformer2-66m-streaming-he"), rec.hebrewAsr?.id)
+        assertEquals(ModelId("zipformer2-66m-streaming-he"), speech.hebrewAsr?.id)
+        assertEquals(ModelId("qwen3.5-2b"), rec.llm?.id)
+        assertNull(speech.llm)
+        assertTrue(heArt in rec.artifacts)
+        assertTrue(heArt in speech.artifacts)
+        assertEquals(
+            base.first { it.pack.id == "speech-only" }.totalBytes + bytes("zipformer2-66m-streaming-he@onnx-int8"),
+            speech.totalBytes,
+        )
+        val applied = PackPlanner.applyChoice(heSettings, rec)
+        assertEquals(ModelId("zipformer2-66m-streaming-he"), applied.hebrewAsrModel)
+        assertEquals(CleanupChoice.Model(ModelId("qwen3.5-2b")), applied.cleanup)
+    }
+
+    @Test
     fun summaryTracksProgressPreparingAndStops() {
         val rec = PackPlanner.options(catalog, emulator, Settings()).first { it.pack.id == "recommended" }
         val (asr, vad, det, rec2, llm) = rec.artifacts

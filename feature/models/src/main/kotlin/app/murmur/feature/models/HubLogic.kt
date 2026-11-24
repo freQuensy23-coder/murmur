@@ -15,6 +15,7 @@ import app.murmur.core.catalog.Status
 import app.murmur.core.catalog.UnitHealth
 import app.murmur.core.model.ArtifactId
 import app.murmur.core.model.ComputeUnit
+import app.murmur.core.model.Language
 import app.murmur.core.model.ModelId
 import app.murmur.core.model.ModelKind
 import app.murmur.core.model.MurmurError
@@ -120,9 +121,11 @@ data class ModelRow(
     val sizeBytes: Long?,
     val streaming: Boolean,
     val units: List<UnitBadge>,
-    /** Language badges: "RU", "EN", then "+N" for the rest (DESIGN 6.4). */
+    /** Language badges: "RU", "EN", "HE", then "+N" for the rest (DESIGN 6.4). */
     val languages: List<String>,
     val noRussian: Boolean,
+    /** Selected dictation languages (from Settings.languages) missing from this model's card. */
+    val missingLanguages: List<String> = emptyList(),
     val previewOnly: Boolean,
     val state: RowState,
     /** The model is the selected one (speech model of record / cleanup choice) even if it is not downloaded. */
@@ -281,9 +284,12 @@ object HubLogic {
 
     /** Settings.languages -> catalog defaults.asr key (the resolver's rule, ARCHITECTURE 8.1). */
     fun languageProfile(languages: List<String>): String {
-        val ru = "ru" in languages
-        val en = "en" in languages
+        val codes = languages.mapTo(HashSet()) { Language.normalize(it) }
+        val ru = "ru" in codes
+        val en = "en" in codes
+        val he = "he" in codes
         return when {
+            he && !ru && !en -> "he"
             ru && !en -> "ru"
             en && !ru -> "en"
             else -> "ru+en"
@@ -312,11 +318,11 @@ object HubLogic {
         return (if (approx) "~" else "") + Format.params(p)
     }
 
-    /** Language badges: RU and EN when listed, else the first code; "+N" for the rest of the card's count. */
+    /** Language badges: RU, EN, and HE when listed, else the first code; "+N" for the rest of the card's count. */
     fun languageBadges(entry: ModelEntry): List<String> {
         val codes = entry.languages.codes
         if (codes.isEmpty()) return emptyList()
-        val firstClass = listOf("ru", "en").filter { it in codes }
+        val firstClass = listOf("ru", "en", "he").filter { it in codes }
         val shown = firstClass.ifEmpty { listOf(codes.first()) }
         val total = maxOf(entry.languages.count, codes.size)
         val rest = total - shown.size
@@ -379,6 +385,9 @@ object HubLogic {
                 .filter { it.result.valid }.maxByOrNull { it.atEpochMs }
                 ?.let { (it.result as? app.murmur.core.store.BenchmarkResultData.Ocr)?.msPerScreenshot }
         } else null
+        val missingLangs = if (entry.kind == ModelKind.ASR || entry.kind == ModelKind.LLM) {
+            input.settings.languages.map(Language::normalize).distinct().filter { it !in entry.languages.codes }
+        } else emptyList()
         return ModelRow(
             id = entry.id,
             kind = entry.kind,
@@ -391,6 +400,7 @@ object HubLogic {
             units = badges,
             languages = languageBadges(entry),
             noRussian = entry.noRussian,
+            missingLanguages = missingLangs,
             previewOnly = entry.asr?.previewOnly == true,
             state = state,
             selected = selected,

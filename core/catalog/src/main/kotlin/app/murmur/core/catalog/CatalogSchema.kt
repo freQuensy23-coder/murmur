@@ -35,7 +35,7 @@ data class Catalog(
 
 @Serializable
 data class CatalogDefaults(
-    /** Language profile ("ru+en", "en", "ru") -> default ASR model. */
+    /** Language profile ("ru+en", "en", "ru", "he") -> default ASR model. */
     val asr: Map<String, ModelId>,
     /** Default cleanup model; null = None. */
     val llm: ModelId? = null,
@@ -213,6 +213,8 @@ data class Artifact(
     val files: List<FileSpec>,
     /** Role -> path relative to the artifact directory after extraction (encoder, decoder, joiner, tokens, model, dict...). */
     val layout: Map<String, String> = emptyMap(),
+    /** Runtime-specific load options forwarded to LoadSpec.options (e.g. "model_type": "zipformer2"). */
+    val options: Map<String, String> = emptyMap(),
     /** ASR: fixed per-call window of this build (Parakeet NPU 20 s, Whisper 30 s); null = unbounded. Segmenter hard max = window - 0.5 s. */
     val maxWindowSec: Double? = null,
     /** Expected peak resident memory while loaded, per unit, MB (memory budget, ARCHITECTURE.md section 7). */

@@ -12,6 +12,7 @@
     <string name="models_streaming">streaming</string>
     <string name="models_byline">%1$s · %2$s</string>
     <string name="models_preview_only">Preview only, not selectable yet</string>
+    <string name="models_no_hebrew">No Hebrew</string>
     <string name="models_selected_download">Selected. Download it to use it.</string>
     <string name="models_queued">Waiting to download</string>
     <string name="models_progress">%1$s of %2$s</string>
@@ -68,6 +69,7 @@
         <item quantity="one">%d language</item>
         <item quantity="other">%d languages</item>
     </plurals>
+    <string name="lang_including_three">%1$s, including %2$s, %3$s, and %4$s</string>
     <string name="lang_including_two">%1$s, including %2$s and %3$s</string>
     <string name="lang_including_one">%1$s, including %2$s</string>
     <string name="lang_not_listed">%1$s; %2$s not listed</string>

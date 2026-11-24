@@ -49,6 +49,7 @@ sealed interface DictationState {
         val plan: SessionPlan,
         val engines: EngineStatus,
         val warn: Boolean = false,
+        val hebrewActive: Boolean = false,
     ) : DictationState
 
     /** Stop received; waiting for the ASR tail. Bubble keeps Listening visuals (timer frozen) for 300 ms, then Transcribing. */
@@ -62,6 +63,7 @@ sealed interface DictationState {
         val showTranscribing: Boolean = false,
         /** True for stored-audio retries and crash replays where ASR must decode the full recording, not just the tail. */
         val wholeRecording: Boolean = false,
+        val hebrewActive: Boolean = false,
     ) : DictationState
 
     /**
@@ -127,7 +129,13 @@ data class SessionPlan(
      * Transcript.speechMs is 0 ("not measured"): row 26 then judges the text and the precheck only.
      */
     val speechMeasured: Boolean = true,
-)
+    /** Mid-recording עב toggle available (Hebrew enabled in settings and a distinct Hebrew ASR model is installed). */
+    val hebrewAvailable: Boolean = false,
+    /** Whether the Hebrew ASR model reports VAD speech time (false for streaming Zipformer2). */
+    val hebrewSpeechMeasured: Boolean = false,
+) {
+    fun speechMeasuredFor(hebrewActive: Boolean): Boolean = if (hebrewActive) hebrewSpeechMeasured else speechMeasured
+}
 
 /** Readiness of the per-session engines, tracked by the reducer from completion events. */
 data class EngineStatus(
@@ -183,6 +191,8 @@ sealed interface UserInput {
     data object HoldSlideOff : UserInput
     /** The x button above the Listening pill. */
     data object Cancel : UserInput
+    /** The עב button above the Listening pill: swap ASR between primary and Hebrew mid-recording. */
+    data object ToggleHebrew : UserInput
     /** Notification action "Start dictation" (and the Quick Settings tile later). */
     data object NotificationStart : UserInput
     /** Onboarding practice field (row 4): posted by DictationOrchestrator.startInApp, never by the overlay. */
@@ -254,6 +264,8 @@ sealed interface DictationEvent {
      * DictationOrchestrator.retry; the error pill's Retry does the same inside row 49). [session] as in [Input].
      */
     data class RetryRequested(val entry: EntryId, val atMs: Long, val session: SessionId? = null) : DictationEvent
+    /** Mid-recording toggle of Hebrew ASR (dispatched via עב button or directly). */
+    data class ToggleHebrew(val session: SessionId) : DictationEvent
 }
 
 /** Result of [Effect.Deliver]. */
@@ -293,6 +305,8 @@ sealed interface Effect {
     data class FinishAsr(val session: SessionId) : Effect
     /** After a :asr death: re-bind, new session, replay the session buffer from sample 0; [thenFinish] in Finishing. */
     data class RestartAsr(val session: SessionId, val thenFinish: Boolean) : Effect
+    /** Mid-recording עב toggle: swap :asr to Hebrew (or back to primary) and replay the session buffer from sample 0. */
+    data class SwapAsr(val session: SessionId, val hebrew: Boolean) : Effect
     /** After a :llm death before cleanup: re-bind, load, restore the prefix snapshot from disk. */
     data class ReloadLlm(val session: SessionId) : Effect
     /** render (ctx v2 + transcript) -> generate (budget) -> guard -> CleanupDone. */

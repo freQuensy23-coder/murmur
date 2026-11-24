@@ -114,7 +114,7 @@ class OnboardingControllerTest {
     }
 
     @Test
-    fun downloadSetsThePackModelsQueuesItAndEndsInThePractice() = runTest {
+    fun downloadSetsThePackModelsQueuesItAndFinishesOnboardingDirectly() = runTest {
         val w = World(backgroundScope)
         toModels(w)
         w.ctl.select("light")
@@ -132,7 +132,30 @@ class OnboardingControllerTest {
         assertTrue(mid.bytesDone in 1 until mid.bytesTotal)
         advanceTimeBy(30_000); runCurrent()
         assertEquals(ModelsPhase.DONE, w.ctl.models.value.summary!!.phase)
-        assertEquals(OnboardingStep.READY, w.ctl.state.value.step)
+        assertTrue(w.ctl.state.value.finished)
+        assertTrue(w.settings.settings.value.onboardingDone)
+    }
+
+    @Test
+    fun togglingHebrewInOnboardingHidesLightPackAndQueuesHebrewAsrAndQwen2b() = runTest {
+        val w = World(backgroundScope)
+        toModels(w)
+        w.ctl.select("light")
+        runCurrent()
+        assertEquals("light", w.ctl.models.value.selectedId)
+        w.ctl.setLanguage("he", true)
+        runCurrent()
+        assertEquals(listOf("ru", "en", "he"), w.ctl.models.value.languages)
+        assertEquals(listOf("recommended", "speech-only"), w.ctl.models.value.options!!.map { it.pack.id })
+        assertEquals("falls back from hidden light pack", "recommended", w.ctl.models.value.selectedId)
+        val rec = w.ctl.models.value.selected!!
+        assertEquals(ModelId("zipformer2-66m-streaming-he"), rec.hebrewAsr?.id)
+        assertEquals(ModelId("qwen3.5-2b"), rec.llm?.id)
+        w.ctl.download()
+        runCurrent()
+        assertEquals(ModelId("zipformer2-66m-streaming-he"), w.settings.settings.value.hebrewAsrModel)
+        assertEquals(CleanupChoice.Model(ModelId("qwen3.5-2b")), w.settings.settings.value.cleanup)
+        assertTrue(ArtifactId("zipformer2-66m-streaming-he@onnx-int8") in w.downloads.requests)
     }
 
     @Test
@@ -168,7 +191,8 @@ class OnboardingControllerTest {
         runCurrent()
         assertEquals(OnboardingStep.DOWNLOADING, w.ctl.state.value.step)
         advanceTimeBy(30_000); runCurrent()
-        assertEquals(OnboardingStep.READY, w.ctl.state.value.step)
+        assertTrue(w.ctl.state.value.finished)
+        assertTrue(w.settings.settings.value.onboardingDone)
         assertTrue(w.downloads.states.value[llm] is InstallState.Installed)
     }
 
@@ -240,14 +264,11 @@ class OnboardingControllerTest {
     fun doneStoresOnboardingDone() = runTest {
         val w = World(backgroundScope)
         runCurrent()
-        var done = false
         w.ctl.dispatch(OnboardingEvent.Start)
         w.ctl.dispatch(OnboardingEvent.Downloads(ModelsPhase.DONE, true))
-        assertEquals(OnboardingStep.READY, w.ctl.state.value.step)
-        w.ctl.finish { done = true }
         runCurrent()
+        assertTrue(w.ctl.state.value.finished)
         assertTrue(w.settings.settings.value.onboardingDone)
-        assertTrue(done)
     }
 
     @Test

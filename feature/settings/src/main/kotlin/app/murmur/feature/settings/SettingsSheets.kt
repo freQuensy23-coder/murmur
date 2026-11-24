@@ -145,8 +145,15 @@ private fun LanguagesSheet(ui: SettingsUi, vm: SettingsViewModel) {
     Column(Modifier.padding(start = SheetOptionsPadding, end = SheetOptionsPadding, top = 8.dp)) {
         SettingsViewModel.LANGUAGES.forEach { code ->
             val on = code in s.languages
+            val label = when (code) {
+                "ru" -> stringResource(R.string.settings_language_ru)
+                "en" -> stringResource(R.string.settings_language_en)
+                "he" -> stringResource(R.string.settings_language_he)
+                else -> code.uppercase()
+            }
+            val nativeSub = if (code == "he") "עברית" else null
             CheckRow(
-                stringResource(if (code == "ru") R.string.settings_language_ru else R.string.settings_language_en), null, on,
+                label, nativeSub, on,
                 onCheckedChange = { vm.setLanguage(code, it) },
                 // The last language cannot be unchecked: the speech model needs one.
                 enabled = !(on && s.languages.size == 1),

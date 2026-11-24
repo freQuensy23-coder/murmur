@@ -125,6 +125,7 @@ class FakeAsrEngine(
     /** Every load call's unit, failed ones included (loadedUnits holds the successful ones). */
     val loadAttempts = mutableListOf<ComputeUnit>()
     val loadedUnits = mutableListOf<ComputeUnit>()
+    val loadedSpecs = mutableListOf<LoadSpec>()
     var loaded: LoadSpec? = null; private set
     val sessions = mutableListOf<FakeAsrSession>()
 
@@ -137,12 +138,14 @@ class FakeAsrEngine(
         (loadErrors[asr.unit] ?: loadError)?.let { return Outcome.Err(it) }
         loaded = asr
         loadedUnits += asr.unit
+        loadedSpecs += asr
         return Outcome.Ok(LoadInfo(asr.unit, loadMs = 5, deviceName = "fake-${asr.unit.name.lowercase()}"))
     }
 
     override suspend fun startSession(options: AsrSessionOptions): AsrSession =
         FakeAsrSession(scripts.removeFirstOrNull() ?: script, finishError, speechAbs, loaded?.unit ?: ComputeUnit.CPU,
-            committedEveryChunks, finishDelayMs).also { sessions += it }
+            committedEveryChunks, finishDelayMs,
+            streaming = loaded?.runtime == app.murmur.core.catalog.RuntimeKeys.SHERPA_ONLINE_TRANSDUCER).also { sessions += it }
 
     override suspend fun unload() { loaded = null }
 }
@@ -154,6 +157,7 @@ class FakeAsrSession(
     private val unit: ComputeUnit,
     private val committedEveryChunks: Int = 25,
     private val finishDelayMs: Long = 0,
+    private val streaming: Boolean = false,
 ) : AsrSession {
     private val _events = MutableSharedFlow<AsrEvent>(replay = 64, extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
     override val events: Flow<AsrEvent> = _events.asSharedFlow()
@@ -193,10 +197,11 @@ class FakeAsrSession(
         }
         finishError?.let { return Outcome.Err(it) }
         val audioMs = PcmFormat.samplesToMs(samples)
-        val speechMs = PcmFormat.samplesToMs(speechSamples)
-        if (speechMs < 500) return Outcome.Err(MurmurError.NoSpeech)
-        _events.tryEmit(AsrEvent.Committed(committed, words.drop(committed).joinToString(" "), 0, audioMs, "ru"))
-        return Outcome.Ok(Transcript(text, "ru", committed + 1, audioMs, speechMs, tailDecodeMs = 10, unit = unit))
+        val speechMs = if (streaming) 0L else PcmFormat.samplesToMs(speechSamples)
+        if (!streaming && speechMs < 500) return Outcome.Err(MurmurError.NoSpeech)
+        val lang = if (streaming) null else "ru"
+        _events.tryEmit(AsrEvent.Committed(committed, words.drop(committed).joinToString(" "), 0, audioMs, lang))
+        return Outcome.Ok(Transcript(text, lang, committed + 1, audioMs, speechMs, tailDecodeMs = 10, unit = unit))
     }
 
     override fun cancel() { cancelled = true }

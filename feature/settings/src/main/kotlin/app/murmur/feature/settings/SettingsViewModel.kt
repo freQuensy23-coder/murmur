@@ -398,8 +398,8 @@ class SettingsViewModel(
     }
 
     companion object {
-        /** The dictation languages Settings offers (ru + en are first-class, BRIEF). */
-        val LANGUAGES: List<String> = listOf("ru", "en")
+        /** The dictation languages Settings offers (ru, en, he). */
+        val LANGUAGES: List<String> = listOf("ru", "en", "he")
         val WPM_PRESETS: List<Int> = listOf(30, 40, 50, 60)
         const val MIN_WPM = 10
         const val MAX_WPM = 200

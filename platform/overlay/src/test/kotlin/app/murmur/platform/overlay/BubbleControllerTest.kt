@@ -117,14 +117,22 @@ class BubbleControllerTest {
     @Test
     fun listeningPillTapFinishes_cancelDiscards_holdPillIgnoresTaps() {
         c.visibility = focused
-        show(DictationBubble.Listening(startedAtMs = now, hold = false, warn = false))
+        show(DictationBubble.Listening(startedAtMs = now, hold = false, warn = false, hebrewAvailable = true))
         c.onTap(TouchRegion.BODY)
         c.onTap(TouchRegion.CANCEL)
-        assertEquals(listOf(UserInput.Tap, UserInput.Cancel), sent)
+        c.onTap(TouchRegion.HEBREW)
+        assertEquals(listOf(UserInput.Tap, UserInput.Cancel, UserInput.ToggleHebrew), sent)
         sent.clear()
-        show(DictationBubble.Listening(startedAtMs = now, hold = true, warn = false))
+        // When Hebrew ASR is unavailable, taps on HEBREW do nothing.
+        show(DictationBubble.Listening(startedAtMs = now, hold = false, warn = false, hebrewAvailable = false))
+        assertFalse(c.pressPolicy(TouchRegion.HEBREW).canTap)
+        c.onTap(TouchRegion.HEBREW)
+        assertEquals(emptyList<UserInput>(), sent)
+        show(DictationBubble.Listening(startedAtMs = now, hold = true, warn = false, hebrewAvailable = true))
+        assertFalse(c.pressPolicy(TouchRegion.HEBREW).canTap)
         c.onTap(TouchRegion.BODY)
         c.onTap(TouchRegion.CANCEL)
+        c.onTap(TouchRegion.HEBREW)
         assertEquals(emptyList<UserInput>(), sent)
     }
 

@@ -148,7 +148,7 @@ class OnboardingMachineTest {
     }
 
     @Test
-    fun modelsDownloadPauseRetryAndReady() {
+    fun modelsDownloadPauseRetryAndFinish() {
         val base = none.copy(micGranted = true, a11yConnected = true, notificationsGranted = true, batteryUnrestricted = true)
         val started = run(E.DownloadStarted, from = at(S.MODELS, base))
         assertEquals(S.DOWNLOADING, started.step)
@@ -156,29 +156,30 @@ class OnboardingMachineTest {
         assertEquals(S.DOWNLOAD_PAUSED, stopped.step)
         assertEquals(S.DOWNLOADING, run(E.RetryDownload, from = stopped).step)
         assertEquals("resumed elsewhere", S.DOWNLOADING, run(E.Downloads(ModelsPhase.ACTIVE, true), from = stopped).step)
-        assertEquals(S.READY, run(E.Downloads(ModelsPhase.DONE, true), from = started).step)
-        assertEquals("continue while downloading", S.READY, run(E.ContinueToPractice, from = started).step)
-        assertEquals("continue without cleanup once speech works", S.READY, run(E.ContinueToPractice, from = stopped).step)
+        assertTrue("downloads done finishes onboarding directly", run(E.Downloads(ModelsPhase.DONE, true), from = started).finished)
+        assertTrue("continue while downloading finishes directly", run(E.Continue, from = started).finished)
+        assertTrue("continue without cleanup once speech works finishes directly", run(E.Continue, from = stopped).finished)
         val noSpeech = run(E.Downloads(ModelsPhase.STOPPED, speechReady = false), from = started)
-        assertEquals("without a speech model there is nothing to practise", S.DOWNLOAD_PAUSED, run(E.ContinueToPractice, from = noSpeech).step)
+        assertFalse("without a speech model continue does not finish", run(E.Continue, from = noSpeech).finished)
+        assertEquals(S.DOWNLOAD_PAUSED, run(E.Continue, from = noSpeech).step)
     }
 
     @Test
     fun modelsFromAnEarlierRunAreNotOfferedAgain() {
-        assertEquals(S.READY, run(E.Downloads(ModelsPhase.DONE, true), from = at(S.MODELS)).step)
+        assertTrue(run(E.Downloads(ModelsPhase.DONE, true), from = at(S.MODELS)).finished)
         assertEquals(S.DOWNLOADING, run(E.Downloads(ModelsPhase.ACTIVE, false), from = at(S.MODELS)).step)
         assertEquals(S.DOWNLOAD_PAUSED, run(E.Downloads(ModelsPhase.STOPPED, false), from = at(S.MODELS)).step)
         assertEquals(S.MODELS, run(E.Downloads(ModelsPhase.NONE, false), from = at(S.MODELS)).step)
     }
 
     @Test
-    fun doneOnlyFromThePracticeStep() {
-        assertTrue(run(E.Done, from = at(S.READY)).finished)
-        assertFalse(run(E.Done, from = at(S.MODELS)).finished)
+    fun continueOnlyFinishesFromDownloadSteps() {
+        assertFalse(run(E.Continue, from = at(S.MODELS)).finished)
+        assertFalse(run(E.Continue, from = at(S.WELCOME)).finished)
     }
 
     @Test
     fun dotsFollowTheFiveSteps() {
-        assertEquals(listOf(0, 0, 1, 1, 2, 3, 4, 4, 4, 5), S.entries.map { it.dotIndex })
+        assertEquals(listOf(0, 0, 1, 1, 2, 3, 4, 4, 4), S.entries.map { it.dotIndex })
     }
 }

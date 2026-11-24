@@ -58,6 +58,7 @@ internal class SessionRun(
     var asrSession: AsrSession? = null
     var asrSpec: LoadSpec? = null
     var asrFellBack = false
+    var hebrewActive = false
     var asrJob: Job? = null
     var finishJob: Job? = null
     /** Pid of the :asr instance the current ASR session runs in (HostState.Up at attach time). */
