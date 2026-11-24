@@ -557,9 +557,18 @@ class DictationMachineTest {
         assertEquals(DictationBubble.Transcribing, BubbleMapping.of(fin))
         assertTrue(Effect.FinishAsr(s) in f.effects)
         assertTrue(Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(300_000) + c.scaled(c.asrLoadWaitMs)) in f.effects)
-        // Once cold ASR finishes loading during Finishing, ASR_FINAL tightens to the decode budget.
+        // Once cold ASR finishes loading during a stored-audio retry, ASR_FINAL preserves the full-recording budget.
         val readyAfterStop = reduce(fin, DictationEvent.AsrReady(s, asrInfo, fellBack = false))
-        assertTrue(Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(c.asrMaxTailMs)) in readyAfterStop.effects)
+        assertTrue(Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(300_000)) in readyAfterStop.effects)
+        // Crash replay in Finishing also preserves the full-recording budget when ASR comes back ready.
+        val longLive = DictationState.Finishing(s, StartMode.TAP, 0, 300_000, plan, readyEngines)
+        val restarted = reduce(longLive, DictationEvent.ProcessDied(s, InferProcess.ASR)).state as DictationState.Finishing
+        val readyAfterCrash = reduce(restarted, DictationEvent.AsrReady(s, asrInfo, fellBack = false))
+        assertTrue(Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(300_000)) in readyAfterCrash.effects)
+        // A normal live dictation with cold ASR loading tightens to the tail budget on AsrReady.
+        val coldLive = DictationState.Finishing(s, StartMode.TAP, 0, 60_000, plan, readyEngines.copy(asr = AsrReadiness.Loading))
+        val readyColdLive = reduce(coldLive, DictationEvent.AsrReady(s, asrInfo, fellBack = false))
+        assertTrue(Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(c.asrMaxTailMs)) in readyColdLive.effects)
         // Reading the stored file has its own bound; past it the retry is a read failure, not "Microphone is busy".
         val timedOut = reduce(armed, DictationEvent.TimerFired(s, Timer.MIC_START))
         assertEquals(DictationState.Done(s, DictationOutcome.Failed(MurmurError.StorageFailed("audio_read"), null)), timedOut.state)

@@ -247,7 +247,7 @@ object DictationMachine {
         val tail = if (wholeRecording) recorded else minOf(recorded, c.asrMaxTailMs)
         val finalBudget = c.asrFinalTimeoutMs(tail) + if (asr == AsrReadiness.Loading) c.scaled(c.asrLoadWaitMs) else 0L
         return Transition(
-            DictationState.Finishing(s, mode, startedAt, stoppedAt, plan, engines),
+            DictationState.Finishing(s, mode, startedAt, stoppedAt, plan, engines, wholeRecording = wholeRecording),
             listOf(
                 Effect.StopCapture(s),
                 Effect.FinishAsr(s),
@@ -288,8 +288,9 @@ object DictationMachine {
             is DictationEvent.AsrReady -> {
                 val eng = readiness(st.engines, e) ?: return Transition(st)
                 val effects = if (st.engines.asr == AsrReadiness.Loading) {
-                    val tail = minOf((st.stoppedAtMs - st.startedAtMs).coerceAtLeast(0), c.asrMaxTailMs)
-                    listOf(Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(tail)))
+                    val recorded = (st.stoppedAtMs - st.startedAtMs).coerceAtLeast(0)
+                    val audioMs = if (st.wholeRecording) recorded else minOf(recorded, c.asrMaxTailMs)
+                    listOf(Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(audioMs)))
                 } else emptyList()
                 Transition(st.copy(engines = eng), effects)
             }
@@ -303,7 +304,7 @@ object DictationMachine {
             // Row 29: re-bind, replay the full recording to a fresh session, finish again.
             val full = (st.stoppedAtMs - st.startedAtMs).coerceAtLeast(0)
             return Transition(
-                st.copy(engines = st.engines.copy(asr = AsrReadiness.Loading, asrCrashes = 1)),
+                st.copy(engines = st.engines.copy(asr = AsrReadiness.Loading, asrCrashes = 1), wholeRecording = true),
                 listOf(Effect.RestartAsr(s, thenFinish = true), Effect.StartTimer(s, Timer.ASR_FINAL, c.asrFinalTimeoutMs(full))),
             )
         }
