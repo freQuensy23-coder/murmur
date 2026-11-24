@@ -162,6 +162,11 @@ internal object Py {
 
     fun isCyrillic(cp: Int): Boolean = cp in 0x0400..0x04FF
 
+    fun isHebrew(cp: Int): Boolean = cp in 0x0590..0x05FF && isAlpha(cp)
+
+    fun isHebrewMark(cp: Int): Boolean =
+        cp in 0x0591..0x05BD || cp == 0x05BF || cp == 0x05C1 || cp == 0x05C2 || cp == 0x05C4 || cp == 0x05C5 || cp == 0x05C7
+
     // ------------------------------------------------------------ strip / split
     fun strip(s: String): String = rstrip(lstrip(s))
 
@@ -295,7 +300,14 @@ internal object Py {
                     i = end
                 }
                 c.isLetter() -> {
-                    b.append('[').append(ignoreCaseVariants(c)).append(']')
+                    val v = IGNORECASE[c]
+                    if (v != null) {
+                        b.append('[').append(v).append(']')
+                    } else if (c.code in 0x0590..0x05FF) {
+                        b.append(c)
+                    } else {
+                        throw IllegalArgumentException("no re.I class for U+%04X".format(c.code))
+                    }
                     i++
                 }
                 else -> {

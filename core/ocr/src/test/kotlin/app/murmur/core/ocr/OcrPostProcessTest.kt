@@ -134,4 +134,62 @@ class OcrPostProcessTest {
         assertTrue(OcrPostProcess.excluded(Rect(5, 5, 5, 9), emptyList(), 0.5)) // zero area
         assertFalse(OcrPostProcess.excluded(box, emptyList(), 0.5))
     }
+
+    @Test
+    fun visualToLogicalMatchesPythonReference() {
+        val cases = listOf(
+            "םלוע םולש" to "שלום עולם",
+            "!םלוע םולש" to "שלום עולם!",
+            "(תירבע) םולש" to "שלום (עברית)",
+            "ל״הצ" to "צה״ל",
+            "םולש ר״ד" to "ד״ר שלום",
+            "GitHub-ל push יתישע" to "עשיתי push ל-GitHub",
+            ".GitHub-ל push יתישע" to "עשיתי push ל-GitHub.",
+            "kube-prometheus רובע Grafana קניל" to "לינק Grafana עבור kube-prometheus",
+            "Hello World םולש" to "שלום Hello World",
+            "15:30-ב השגפ" to "פגשה ב-15:30",
+            "50₪ ריחמ" to "מחיר 50₪",
+            "₪50 ריחמ" to "מחיר ₪50",
+            "₪ 50 ריחמ" to "מחיר 50 ₪",
+            "100% חוטב" to "בטוח 100%",
+            "054-123-4567 רפסמ" to "מספר 054-123-4567",
+            "באהטיגב PR #4182 יתחתפ" to "פתחתי PR #4182 בגיטהאב",
+            "Hello םולש world" to "Hello שלום world",
+            "Hello םלוע םולש world" to "Hello שלום עולם world",
+            "Привет םולש мир" to "Привет שלום мир",
+            "Привет, Grafana! 15:30" to "Привет, Grafana! 15:30",
+            "PR #4182 (main) — 100%" to "PR #4182 (main) — 100%",
+            "" to "",
+        )
+        for ((visual, logical) in cases) {
+            assertEquals(visual, logical, OcrPostProcess.visualToLogical(visual))
+        }
+    }
+
+    @Test
+    fun rowsSortRtlDominantRightToLeftAndEndToEndProcessConvertsVisualHebrew() {
+        val l = { t: String, b: Rect -> OcrPostProcess.L(t, 0.9, b) }
+        val hebRow = listOf(
+            l("12:30", Rect(50, 104, 150, 130)),
+            l("שלום עולם", Rect(500, 100, 980, 140)),
+            l("עוד שורה", Rect(500, 160, 980, 195)),
+        )
+        assertEquals(listOf("שלום עולם", "12:30", "עוד שורה"), OcrPostProcess.rows(hebRow, 0.5).map { it.text })
+        val twoHeb = listOf(l("שמאל", Rect(100, 100, 400, 140)), l("ימין", Rect(600, 102, 950, 142)))
+        assertEquals(listOf("ימין", "שמאל"), OcrPostProcess.rows(twoHeb, 0.5).map { it.text })
+        val ltrRow = listOf(l("12:30", Rect(900, 104, 1000, 130)), l("Привет мир", Rect(50, 100, 600, 140)))
+        assertEquals(listOf("Привет мир", "12:30"), OcrPostProcess.rows(ltrRow, 0.5).map { it.text })
+
+        // End-to-end process() on visual CTC Hebrew lines
+        val out = OcrPostProcess.process(
+            listOf(
+                RecLine(Rect(50, 104, 150, 130), "12:30", 0.95),
+                RecLine(Rect(500, 100, 980, 140), "GitHub-ל push יתישע", 0.96),
+                RecLine(Rect(500, 160, 980, 195), "םלוע םולש", 0.97),
+            ),
+            1080,
+            2520,
+        )
+        assertEquals(listOf("עשיתי push ל-GitHub", "12:30", "שלום עולם"), out.map { it.text })
+    }
 }

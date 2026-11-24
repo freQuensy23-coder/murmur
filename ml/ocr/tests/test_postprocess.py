@@ -99,3 +99,51 @@ def test_glued_subtokens():
     assert pp.repair_homoglyphs("Обнови RNN-Т до вечера") == "Обнови RNN-T до вечера"
     assert pp.repair_homoglyphs("Llama.срр") == "Llama.cpp"
     assert pp.repair_homoglyphs("Меню SIM-карты") == "Меню SIM-карты"
+
+
+def test_visual_to_logical_hebrew_and_mixed():
+    v2l = pp.visual_to_logical
+    # Pure Hebrew (visual LTR -> logical RTL)
+    assert v2l("םלוע םולש") == "שלום עולם"
+    assert v2l("!םלוע םולש") == "שלום עולם!"
+    assert v2l("(תירבע) םולש") == "שלום (עברית)"
+    assert v2l("ל״הצ") == "צה״ל"
+    assert v2l("םולש ר״ד") == "ד״ר שלום"
+    # Mixed he+en (RTL-dominant, preserving LTR runs intact)
+    assert v2l("GitHub-ל push יתישע") == "עשיתי push ל-GitHub"
+    assert v2l(".GitHub-ל push יתישע") == "עשיתי push ל-GitHub."
+    assert v2l("kube-prometheus רובע Grafana קניל") == "לינק Grafana עבור kube-prometheus"
+    assert v2l("Hello World םולש") == "שלום Hello World"
+    # Mixed he+digits
+    assert v2l("15:30-ב השגפ") == "פגשה ב-15:30"
+    assert v2l("50₪ ריחמ") == "מחיר 50₪"
+    assert v2l("₪50 ריחמ") == "מחיר ₪50"
+    assert v2l("₪ 50 ריחמ") == "מחיר 50 ₪"
+    assert v2l("100% חוטב") == "בטוח 100%"
+    assert v2l("054-123-4567 רפסמ") == "מספר 054-123-4567"
+    assert v2l("באהטיגב PR #4182 יתחתפ") == "פתחתי PR #4182 בגיטהאב"
+    # LTR-dominant lines with embedded Hebrew
+    assert v2l("Hello םולש world") == "Hello שלום world"
+    assert v2l("Hello םלוע םולש world") == "Hello שלום עולם world"
+    assert v2l("Привет םולש мир") == "Привет שלום мир"
+    # Non-Hebrew RU/EN 100% untouched
+    assert v2l("Привет, Grafana! 15:30") == "Привет, Grafana! 15:30"
+    assert v2l("PR #4182 (main) — 100%") == "PR #4182 (main) — 100%"
+    assert v2l("") == ""
+
+
+def test_rows_rtl_right_to_left_and_ltr_unchanged():
+    # RTL-dominant row sorts right-to-left (rightmost box first)
+    heb_row = [
+        L("12:30", (50, 104, 150, 130)),
+        L("שלום עולם", (500, 100, 980, 140)),
+        L("עוד שורה", (500, 160, 980, 195)),
+    ]
+    out_heb = pp.reading_order(heb_row, 1080, 2520, DEFAULT)
+    assert [ln["text"] for ln in out_heb] == ["שלום עולם", "12:30", "עוד שורה"]
+    # Two Hebrew boxes on the same row: right box before left box
+    two_heb = [L("שמאל", (100, 100, 400, 140)), L("ימין", (600, 102, 950, 142))]
+    assert [ln["text"] for ln in pp.reading_order(two_heb, 1080, 2520, DEFAULT)] == ["ימין", "שמאל"]
+    # LTR row remains left-to-right
+    ltr_row = [L("12:30", (900, 104, 1000, 130)), L("Привет мир", (50, 100, 600, 140))]
+    assert [ln["text"] for ln in pp.reading_order(ltr_row, 1080, 2520, DEFAULT)] == ["Привет мир", "12:30"]

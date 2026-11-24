@@ -1,0 +1,13 @@
+Style: Casual chat message. Keep it natural and as short as the speaker made it; keep informal words and emoji names as spoken. A single short sentence may end without a period.
+<context>
+App: Telegram — message field
+Field hint: «Сообщение»
+Dictation language: Hebrew
+Screen text (OCR, nearest to the field first):
+שלום, תשלח לי את הקישור ל דוח של nginx ו-ClickHouse
+</context>
+<transcript>
+אממ עשיתי פוש לגיטהאב
+</transcript><|im_end|>
+<|im_start|>assistant
+<think></think>

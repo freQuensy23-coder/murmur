@@ -54,6 +54,14 @@ def _is_lat(c: str) -> bool:
     return ("a" <= c <= "z") or ("A" <= c <= "Z") or ("À" <= c <= "ɏ" and c.isalpha())
 
 
+def _is_heb(c: str) -> bool:
+    return "\u0590" <= c <= "\u05ff"
+
+
+def _is_heb_letter(c: str) -> bool:
+    return "\u0590" <= c <= "\u05ff" and c.isalpha()
+
+
 def script_score(tok: str) -> tuple[float, float]:
     """(cyrillic, latin) evidence: 1 per letter that has no twin, WEAK_WEIGHT per weak twin, 0 per strong twin."""
     cy = la = 0.0
@@ -136,7 +144,7 @@ def _twin_only(t: str, i: int, toks: list[str], scores: list, default: str | Non
 
 
 def repair_homoglyphs(text: str, default: str | None = None) -> str:
-    """Make every token single-script where the evidence says so. Tokens are separated by space, "-", "/",
+    r"""Make every token single-script where the evidence says so. Tokens are separated by space, "-", "/",
     "_", "." (kept). Rules, in order (README.md section 6.3):
     1. a token with an unambiguous letter (no twin; non-Russian Cyrillic counts as Latin) and both scripts takes
        the script with more evidence (script_score; ties unchanged); single-script tokens are kept;
@@ -161,6 +169,82 @@ def repair_homoglyphs(text: str, default: str | None = None) -> str:
         else:
             out.append(_to_lat(t))
     return "".join(t + (seps[i] if i < len(seps) else "") for i, t in enumerate(out))
+
+
+# ----------------------------------------------------------------------------- BiDi visual-to-logical
+
+_MIRROR = {
+    "(": ")", ")": "(",
+    "[": "]", "]": "[",
+    "{": "}", "}": "{",
+    "<": ">", ">": "<",
+    "«": "»", "»": "«",
+}
+_NUM_ET = frozenset("%₪$€£+")
+
+
+def _reverse_rtl_run(seg: str) -> str:
+    """Reverse an RTL run by base+combining clusters and mirror paired brackets."""
+    clusters: list[str] = []
+    for ch in seg:
+        if clusters and unicodedata.category(ch) == "Mn":
+            clusters[-1] += ch
+        else:
+            clusters.append(_MIRROR.get(ch, ch))
+    return "".join(reversed(clusters))
+
+
+def visual_to_logical(text: str) -> str:
+    """Convert visual left-to-right CTC output to logical Unicode order when a line contains Hebrew (U+0590..U+05FF).
+    100% no-op on lines without Hebrew characters. Preserves LTR Latin/Cyrillic/digit runs while reversing RTL Hebrew
+    runs and RTL run ordering when the line is RTL-based (rightmost strong char is RTL)."""
+    if not any(_is_heb(c) for c in text):
+        return text
+    n = len(text)
+    cls = [
+        "R" if _is_heb(c)
+        else "L" if (_is_lat(c) or _is_cyr(c) or c.isalpha())
+        else "D" if "0" <= c <= "9"
+        else "N"
+        for c in text
+    ]
+    base = "R"
+    for cl in cls:
+        if cl in ("R", "L"):
+            base = cl
+    dirs = ["L" if cl in ("L", "D") else cl for cl in cls]
+    for i in range(1, n):
+        if text[i] in _NUM_ET and (cls[i - 1] == "D" or (text[i - 1] in _NUM_ET and dirs[i - 1] == "L")):
+            dirs[i] = "L"
+    for i in range(n - 2, -1, -1):
+        if text[i] in _NUM_ET and (cls[i + 1] == "D" or (text[i + 1] in _NUM_ET and dirs[i + 1] == "L")):
+            dirs[i] = "L"
+    i = 0
+    while i < n:
+        if dirs[i] != "N":
+            i += 1
+            continue
+        j = i
+        while j < n and dirs[j] == "N":
+            j += 1
+        left = dirs[i - 1] if i > 0 else base
+        right = dirs[j] if j < n else base
+        fill = left if left == right else base
+        for k in range(i, j):
+            dirs[k] = fill
+        i = j
+    runs: list[str] = []
+    i = 0
+    while i < n:
+        j = i + 1
+        while j < n and dirs[j] == dirs[i]:
+            j += 1
+        seg = text[i:j]
+        runs.append(_reverse_rtl_run(seg) if dirs[i] == "R" else seg)
+        i = j
+    if base == "R":
+        runs.reverse()
+    return "".join(runs)
 
 
 # ----------------------------------------------------------------------------- de-duplication
@@ -205,9 +289,30 @@ def dedup_text(lines: list[dict]) -> list[dict]:
 # ----------------------------------------------------------------------------- reading order
 
 
+def _is_rtl_row(row: list[dict]) -> bool:
+    heb = ltr = 0
+    rtl_starts = ltr_starts = 0
+    for ln in row:
+        first_strong = ""
+        for c in ln["text"]:
+            if _is_heb_letter(c):
+                heb += 1
+                if not first_strong:
+                    first_strong = "R"
+            elif _is_lat(c) or _is_cyr(c):
+                ltr += 1
+                if not first_strong:
+                    first_strong = "L"
+        if first_strong == "R":
+            rtl_starts += 1
+        elif first_strong == "L":
+            ltr_starts += 1
+    return heb > 0 and (heb > ltr or rtl_starts > ltr_starts)
+
+
 def _rows(lines: list[dict], overlap: float) -> list[dict]:
     """Group into rows (vertical overlap >= overlap * min height with the row's first box), rows top to
-    bottom by their first box's y0, boxes inside a row left to right."""
+    bottom by their first box's y0, boxes inside a row left to right (right to left for RTL-dominant rows)."""
     order = sorted(lines, key=lambda ln: (ln["box"][1], ln["box"][0]))
     rows: list[list[dict]] = []
     for ln in order:
@@ -222,7 +327,10 @@ def _rows(lines: list[dict], overlap: float) -> list[dict]:
             rows.append([ln])
     out = []
     for row in rows:
-        out.extend(sorted(row, key=lambda ln: (ln["box"][0], ln["box"][1])))
+        if _is_rtl_row(row):
+            out.extend(sorted(row, key=lambda ln: (-ln["box"][2], ln["box"][1])))
+        else:
+            out.extend(sorted(row, key=lambda ln: (ln["box"][0], ln["box"][1])))
     return out
 
 

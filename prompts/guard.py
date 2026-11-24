@@ -49,36 +49,44 @@ import unicodedata
 from dataclasses import dataclass
 
 FILLERS = frozenset("""э ээ эээ э-э э-э-э м мм ммм м-м хм гм а-а ну эм ам
-um uh uhm uh-huh erm er hmm hm mm mmm ah eh""".split())
+um uh uhm uh-huh erm er hmm hm mm mmm ah eh
+אה אהה אההה אה-אה אמ אממ אמממ כאילו המ הממ""".split())
 
 # Whole-transcript ASR hallucinations on silence (Whisper family) and markers. Matched case-insensitively
 # against the transcript with punctuation stripped at the ends.
 _HALLU_FULL = re.compile(
-    r"^(?:\[?\s*(?:blank_audio|silence|music|музыка|тишина|аплодисменты|смех)\s*\]?|"
-    r"\(?\s*(?:music|музыка)\s*\)?|"
+    r"^(?:\[?\s*(?:blank_audio|silence|music|музыка|тишина|аплодисменты|смех|מוזיקה|שקט|מחיאות כפיים|צחוק)\s*\]?|"
+    r"\(?\s*(?:music|музыка|מוזיקה)\s*\)?|"
     r"thanks? (?:you )?for watching!?|thank you for watching!?|please subscribe.*|"
     r"продолжение следует\.*|спасибо за просмотр!?|подписывайтесь на канал.*|"
     r"субтитры (?:сделал|делал|создавал|подготовил)\w*\s.*|редактор субтитров\s.*|"
-    r"корректор\s+\S+\.\s*\S+|dimatorzok)$", re.I)
+    r"корректор\s+\S+\.\s*\S+|dimatorzok|"
+    r"תודה (?:רבה )?שצפיתם!?|תודה על הצפייה!?|הירשמו לערוץ.*|תרשמו לערוץ.*|"
+    r"המשך יבוא\.*|כתוביות.*|עריכת כתוביות\s.*)$", re.I)
 # The same phrases when they trail real speech ("Буду через 10 минут. Субтитры сделал DimaTorzok").
 _HALLU_TAIL = re.compile(
     r"(?:(?<=[.!?…])\s*|\s+)(?:продолжение следует\.*|субтитры (?:сделал|делал|создавал|подготовил)\w*\s.*|"
-    r"редактор субтитров\s.*|thanks? for watching!?|thank you for watching!?|\[blank_audio\])\s*$", re.I)
+    r"редактор субтитров\s.*|thanks? for watching!?|thank you for watching!?|\[blank_audio\]|"
+    r"תודה (?:רבה )?שצפיתם!?|תודה על הצפייה!?|המשך יבוא\.*|"
+    r"כתוביות\s*(?::|על ידי|ע״י|ע\"י|מאת|נוצרו).*|עריכת כתוביות\s.*)\s*$", re.I)
 
 _THINK = re.compile(r"<think>.*?</think>\s*|^.*?</think>\s*", re.S)
 _CHAT_TOKENS = re.compile(r"<\|[a-z_]+\|>|<\|im_end\|>|<\|endoftext\|>")
 _LABEL = re.compile(r"^\s*(?:output|edited text|edited|result|corrected text|text|вывод|результат|текст|"
-                    r"исправленный текст|отредактированный текст)\s*:\s*", re.I)
+                    r"исправленный текст|отредактированный текст|"
+                    r"טקסט מתוקן|טקסט ערוך|טקסט|תוצאה|פלט)\s*:\s*", re.I)
 _LEAK = re.compile(r"</?(?:context|transcript|preferences)>|^\s*Style:|<\|im_|<think|Names and terms on screen|"
                    r"Dictation language:|Text already in the field", re.I | re.M)
 _PREAMBLE = re.compile(
     r"^\s*(?:sure\b|certainly\b|of course\b|here is\b|here's\b|here are\b|okay, here\b|i'm sorry\b|i cannot\b|"
     r"as an ai\b|конечно[,!]|вот (?:исправленный|ваш|отредактированный|готовый)|исправленный текст|"
-    r"отредактированный текст|извините, (?:я|но)|я не могу\b)", re.I)
-_WORD = re.compile(r"[\w]+(?:[-'’][\w]+)*")
+    r"отредактированный текст|извините, (?:я|но)|я не могу\b|"
+    r"בטח\b|בוודאי\b|כמובן\b|הנה (?:הטקסט|הגרסה)|טקסט מתוקן|אני מצטער[,!]|אני לא יכול\b)", re.I)
+_HEB_MARKS = re.compile(r"[\u0591-\u05bd\u05bf\u05c1\u05c2\u05c4\u05c5\u05c7]")
+_WORD = re.compile(r"[\w]+(?:[-'’׳״][\w]+)*׳?")
 _QUOTE_PAIRS = {'"': '"', "«": "»", "“": "”", "'": "'", "`": "`"}
 
-GUARD_VERSION = "guard.v1.1"  # frozen 2026-11-19: v1 + R4 char loop/length + R5b single word (accepted on dev)
+GUARD_VERSION = "guard.v1.2"  # v1.1 + Hebrew script/phonetics/tokenization/fillers/hallucinations/labels/preambles
 
 GROW_K, GROW_ADD = 1.5, 4
 CHAR_GROW_K, CHAR_GROW_ADD = 2.5, 40           # characters: catches blow-ups inside one hyphenated "word"
@@ -107,32 +115,46 @@ class Verdict:
 
 
 # ---------------------------------------------------------------- helpers
+def _word_tokens(s: str) -> list[str]:
+    return _WORD.findall(_HEB_MARKS.sub("", s or ""))
+
+
 def _words(s: str) -> list[str]:
-    return [w.casefold().replace("ё", "е") for w in _WORD.findall(s or "")]
+    return [w.casefold().replace("ё", "е") for w in _word_tokens(s)]
 
 
 def _content(ws: list[str]) -> list[str]:
     return [w for w in ws if w not in FILLERS]
 
 
-def _letters(s: str) -> tuple[int, int]:
+def _letters(s: str) -> tuple[int, int, int]:
     lat = sum(1 for ch in s if "a" <= ch.lower() <= "z")
     cyr = sum(1 for ch in s if "Ѐ" <= ch <= "ӿ")
-    return lat, cyr
+    heb = sum(1 for ch in s if "\u0590" <= ch <= "\u05ff" and ch.isalpha())
+    return lat, cyr, heb
 
 
-_TR = dict(zip("абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
+_TR = {
+    **dict(zip("абвгдеёжзийклмнопрстуфхцчшщъыьэюя",
                ["a", "b", "v", "g", "d", "e", "e", "zh", "z", "i", "i", "k", "l", "m", "n", "o", "p", "r", "s", "t",
-                "u", "f", "h", "ts", "ch", "sh", "sch", "", "y", "", "e", "yu", "ya"]))
+                "u", "f", "h", "ts", "ch", "sh", "sch", "", "y", "", "e", "yu", "ya"])),
+    **dict(zip("אבגדהוזחטיךכלםמןנסעףפץצקרשת",
+               ["a", "b", "g", "d", "", "u", "z", "k", "t", "i",
+                "k", "k", "l", "m", "m", "n", "n", "s", "a", "f",
+                "p", "ts", "ts", "k", "r", "sh", "t"])),
+}
+_HEB_DIGRAPHS = [("וו", "v"), ("ג׳", "j"), ("ג'", "j"), ("צ׳", "ch"), ("צ'", "ch")]
 _PHON = [("sch", "sh"), ("ph", "f"), ("ck", "k"), ("qu", "kv"), ("w", "v"), ("th", "t"), ("x", "ks"), ("c", "k"),
          ("y", "i"), ("j", "dj"), ("q", "k"), ("ou", "au"), ("ee", "i"), ("oo", "u"), ("h", "")]
 
 
 def phonetic_key(s: str) -> str:
-    """Script-independent rough key: Cyrillic transliterated, simple English phonetics, vowels folded, no
-    separators, doubled letters collapsed. 'клик хаус' -> 'klikaus', 'ClickHouse' -> 'klikaus'."""
+    """Script-independent rough key: Cyrillic and Hebrew transliterated, simple English phonetics, vowels folded, no
+    separators, doubled letters collapsed. 'клик хаус' -> 'klakas', 'ClickHouse' -> 'klakas', 'גיטהאב' -> 'gatab'."""
     s = unicodedata.normalize("NFKD", s.casefold())
     s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    for a, b in _HEB_DIGRAPHS:
+        s = s.replace(a, b)
     s = "".join(_TR.get(ch, ch) for ch in s)
     s = re.sub(r"[^a-z0-9]", "", s)
     for a, b in _PHON:
@@ -162,7 +184,7 @@ def best_sim(term: str, transcript: str) -> float:
     tk = phonetic_key(term)
     if not tk:
         return 1.0
-    keys = [phonetic_key(w) for w in _WORD.findall(transcript)]
+    keys = [phonetic_key(w) for w in _word_tokens(transcript)]
     best = 0.0
     for i in range(len(keys)):
         for n in range(1, 5):
@@ -218,8 +240,14 @@ def _screen_words(ctx: dict) -> set[str]:
 
 
 def _script(w: str) -> str:
-    lat, cyr = _letters(w)
-    return "lat" if lat > cyr else "cyr" if cyr > lat else ""
+    lat, cyr, heb = _letters(w)
+    if lat > cyr and lat > heb:
+        return "lat"
+    if cyr > lat and cyr > heb:
+        return "cyr"
+    if heb > lat and heb > cyr:
+        return "heb"
+    return ""
 
 
 def _translated_span(transcript: str, output: str) -> bool:
@@ -232,7 +260,7 @@ def _translated_span(transcript: str, output: str) -> bool:
     tset, oset = set(tw), set(ow)
     ok1 = [phonetic_key(w) for w in ow]
     okeys = ok1 + [a + b for a, b in zip(ok1, ok1[1:])]  # single output words and adjacent pairs
-    for src, dst in (("lat", "cyr"), ("cyr", "lat")):
+    for src, dst in (("lat", "cyr"), ("cyr", "lat"), ("lat", "heb"), ("heb", "lat"), ("cyr", "heb"), ("heb", "cyr")):
         lost = [w for w in tw if _script(w) == src and w not in oset
                 and max((_sim(phonetic_key(w), k) for k in okeys), default=0.0) < SPAN_KEEP_SIM]
         new = [w for w in ow if _script(w) == dst and w not in tset and best_sim(w, flat_t) < SPAN_SIM]
@@ -315,14 +343,15 @@ def guard(transcript: str, output: str, ctx: dict | None = None) -> Verdict:
     if len(ow) > GROW_K * len(tw) + GROW_ADD or (len(tw) >= SHRINK_MIN_IN and len(ow) < SHRINK_K * len(tw)):
         return Verdict(fb, "fallback", "R4_length")
     if cat not in NO_SCRIPT_CHECK:
-        (tl, tc), (ol, oc) = _letters(tr), _letters(o)
-        tn, on = tl + tc, ol + oc
+        (tl, tc, th), (ol, oc, oh) = _letters(tr), _letters(o)
+        tn, on = tl + tc + th, ol + oc + oh
         if tn >= SCRIPT_MIN_LETTERS and on:
-            for t_s, o_s in ((tl, ol), (tc, oc)):
+            for t_s, o_s in ((tl, ol), (tc, oc), (th, oh)):
                 if t_s >= SCRIPT_MIN_LETTERS and t_s / tn >= 0.2 and o_s / on < 0.05:
                     return Verdict(fb, "fallback", "R5_script")
-            if tc / tn >= 0.7 and oc / on < 0.3:
-                return Verdict(fb, "fallback", "R5_script")
+            for t_s, o_s in ((tc, oc), (th, oh)):
+                if t_s / tn >= 0.7 and o_s / on < 0.3:
+                    return Verdict(fb, "fallback", "R5_script")
         if _translated_span(tr, o):
             return Verdict(fb, "fallback", "R5b_translated_span")
     allowed = {w[:5] for w in _words(tr)} | _screen_words(ctx)

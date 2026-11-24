@@ -122,6 +122,29 @@ class V2Render(unittest.TestCase):
         v = guard.guard("передай тимуру что всё готово", "Передай Тимуру Гарипову, что всё готово.", ctx)
         self.assertEqual(v.action, "accept")
 
+    def test_hebrew_lang_right_edge_merge_and_terms(self):
+        # Right-aligned wrapped Hebrew chat bubble merges on matching right edge x1
+        ctx = C([
+            L("שלום, תשלח לי בבקשה את הקישור ל", 260, 300, h=48, x1=1020),
+            L("דוח המכירות", 740, 353, h=48, x1=1018),
+            L("בסדר, שולח עכשיו", 680, 500, h=48, x1=1020),
+        ], language={"asr": "he"})
+        out = render.render_context(ctx, {"order": "reading"})
+        self.assertIn("Dictation language: Hebrew", out)
+        self.assertEqual(screen(ctx, order="reading"), [
+            "שלום, תשלח לי בבקשה את הקישור ל דוח המכירות",
+            "בסדר, שולח עכשיו",
+        ])
+        # Hebrew OCR line extracts Latin tech terms just like Cyrillic lines
+        self.assertEqual(
+            render.ocr_terms(["תבדוק את הלוגים ב kibana יש שגיאה מ-nginx ו-ClickHouse"]),
+            ["kibana", "מ-nginx", "ו-ClickHouse"],
+        )
+        self.assertEqual(
+            render.ocr_terms(["עשיתי פוש אל GitHub ושלחתי הודעה ב slack על postgres"]),
+            ["GitHub", "slack", "postgres"],
+        )
+
 
 class V2Sets(unittest.TestCase):
     def test_fixture_deterministic(self):

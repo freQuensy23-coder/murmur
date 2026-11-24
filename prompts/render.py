@@ -40,7 +40,7 @@ MAX_SNIPPETS = 3
 MAX_SNIPPET_CHARS = 120
 MAX_TITLE_CHARS = 60
 
-LANG_NAMES = {"ru": "Russian", "en": "English", "uk": "Ukrainian", "de": "German",
+LANG_NAMES = {"ru": "Russian", "en": "English", "he": "Hebrew", "uk": "Ukrainian", "de": "German",
               "fr": "French", "es": "Spanish"}
 
 FIELD_PHRASES = {
@@ -251,7 +251,9 @@ def _ocr_blocks(ctx: dict, o: dict) -> list[dict]:
     for ln in kept:
         b = blocks[-1] if blocks else None
         lh, bh = ln["box"][3] - ln["box"][1], b["last"][3] - b["last"][1] if b else 0
-        if (o["merge"] and b is not None and abs(ln["box"][0] - b["last"][0]) * 50 <= w
+        aligned = (b is not None and (abs(ln["box"][0] - b["last"][0]) * 50 <= w
+                                      or abs(ln["box"][2] - b["last"][2]) * 50 <= w))
+        if (o["merge"] and aligned
                 and abs(lh - bh) * 10 <= bh and 0 <= ln["box"][1] - b["last"][3]
                 and (ln["box"][1] - b["last"][3]) * 2 < max(1, bh)):
             b["text"] += " " + ln["text"]
@@ -291,7 +293,9 @@ def ocr_terms(texts: list[str], limit: int = 20) -> list[str]:
             seen.add(x.casefold())
             out.append(x)
     for t in texts:
-        cyr_line = sum(1 for ch in t if "Ѐ" <= ch <= "ӿ") > sum(1 for ch in t if "a" <= ch.lower() <= "z")
+        lat_n = sum(1 for ch in t if "a" <= ch.lower() <= "z")
+        cyr_line = sum(1 for ch in t if "Ѐ" <= ch <= "ӿ") > lat_n
+        heb_line = sum(1 for ch in t if "\u0590" <= ch <= "\u05ff" and ch.isalpha()) > lat_n
         toks = t.split()
         run: list[str] = []
         run_start = False
@@ -307,7 +311,7 @@ def ocr_terms(texts: list[str], limit: int = 20) -> list[str]:
             special = bool(re.search(r"\w[#@_./\-]\w|[^\W\d_]\d|\d[^\W\d_]", core))
             camel = bool(re.search(r"[a-zа-яё][A-ZА-ЯЁ]", core))
             caps = len(letters) >= 2 and all(ch.isupper() for ch in letters)
-            latin = cyr_line and len(letters) >= 4 and all("a" <= ch.lower() <= "z" for ch in letters)
+            latin = (cyr_line or heb_line) and len(letters) >= 4 and all("a" <= ch.lower() <= "z" for ch in letters)
             if not core:
                 flush()
             elif special or camel or caps:

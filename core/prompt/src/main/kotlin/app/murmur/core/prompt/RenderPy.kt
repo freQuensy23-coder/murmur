@@ -26,7 +26,7 @@ import java.text.Normalizer
 internal object RenderPy {
     const val MAX_BEFORE_CURSOR = 300
 
-    val LANG_NAMES = mapOf("ru" to "Russian", "en" to "English", "uk" to "Ukrainian", "de" to "German",
+    val LANG_NAMES = mapOf("ru" to "Russian", "en" to "English", "he" to "Hebrew", "uk" to "Ukrainian", "de" to "German",
         "fr" to "French", "es" to "Spanish")
 
     val FIELD_PHRASES = mapOf(
@@ -231,7 +231,8 @@ internal object RenderPy {
             val b = blocks.lastOrNull()
             val lh = box[3] - box[1]
             val bh = if (b != null) b.last[3] - b.last[1] else 0
-            if (o.merge && b != null && Math.abs(box[0] - b.last[0]) * 50 <= w && Math.abs(lh - bh) * 10 <= bh &&
+            val aligned = b != null && (Math.abs(box[0] - b.last[0]) * 50 <= w || Math.abs(box[2] - b.last[2]) * 50 <= w)
+            if (o.merge && aligned && Math.abs(lh - bh) * 10 <= bh &&
                 0 <= box[1] - b.last[3] && (box[1] - b.last[3]) * 2 < maxOf(1, bh)
             ) {
                 b.text += " $text"
@@ -282,7 +283,9 @@ internal object RenderPy {
         }
         for (t in texts) {
             val tc = Py.cps(t)
-            val cyrLine = tc.count { Py.isCyrillic(it) } > tc.count { Py.lowerIsAsciiLetter(it) }
+            val latN = tc.count { Py.lowerIsAsciiLetter(it) }
+            val cyrLine = tc.count { Py.isCyrillic(it) } > latN
+            val hebLine = tc.count { Py.isHebrew(it) } > latN
             val toks = Py.split(t)
             val run = ArrayList<String>()
             var runStart = false
@@ -298,7 +301,7 @@ internal object RenderPy {
                 val special = special(cc)
                 val camel = (0 until cc.size - 1).any { isCamelLower(cc[it]) && isCamelUpper(cc[it + 1]) }
                 val caps = letters.size >= 2 && letters.all { Py.isUpper(it) }
-                val latin = cyrLine && letters.size >= 4 && letters.all { Py.lowerIsAsciiLetter(it) }
+                val latin = (cyrLine || hebLine) && letters.size >= 4 && letters.all { Py.lowerIsAsciiLetter(it) }
                 if (cc.isEmpty()) {
                     flush()
                 } else if (special || camel || caps) {
