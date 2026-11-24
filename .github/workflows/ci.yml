@@ -175,7 +175,20 @@ jobs:
           MURMUR_RELEASE_STORE_PASSWORD: ${{ secrets.MURMUR_RELEASE_STORE_PASSWORD }}
           MURMUR_RELEASE_KEY_ALIAS: ${{ secrets.MURMUR_RELEASE_KEY_ALIAS }}
           MURMUR_RELEASE_KEY_PASSWORD: ${{ secrets.MURMUR_RELEASE_KEY_PASSWORD }}
-        run: ./gradlew assembleDebug assembleRelease --stacktrace
+        run: |
+          VERSION_NAME="${GITHUB_REF_NAME#v}"
+          CORE="${VERSION_NAME%%[-+]*}"
+          IFS='.' read -r MAJOR MINOR PATCH _ <<< "$CORE"
+          if [[ "$MAJOR" =~ ^[0-9]+$ && "$MINOR" =~ ^[0-9]+$ && "$PATCH" =~ ^[0-9]+$ ]]; then
+            VERSION_CODE=$((10#$MAJOR * 10000 + 10#$MINOR * 100 + 10#$PATCH))
+          else
+            VERSION_CODE=2
+          fi
+          echo "Building versionName=$VERSION_NAME versionCode=$VERSION_CODE"
+          ./gradlew assembleDebug assembleRelease \
+            -Pmurmur.versionName="$VERSION_NAME" \
+            -Pmurmur.versionCode="$VERSION_CODE" \
+            --stacktrace
       - name: Check that both APKs ship the engines
         run: |
           bash tools/e2e/check_apk_engines.sh app/build/outputs/apk/debug/app-debug.apk arm64-v8a x86_64

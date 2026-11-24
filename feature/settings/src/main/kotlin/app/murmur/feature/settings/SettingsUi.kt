@@ -146,6 +146,7 @@ internal fun SettingsRoot(
     initialPromptDialog: PromptDialog? = null,
 ) {
     val ui by vm.ui.collectAsStateWithLifecycle()
+    val updateState by vm.updateState.collectAsStateWithLifecycle()
     val sub by vm.sub.collectAsStateWithLifecycle()
     val category by vm.category.collectAsStateWithLifecycle()
     val wide = rememberIsWide()
@@ -180,18 +181,23 @@ internal fun SettingsRoot(
             snack.show(eventText)
         }
     }
-    // A category that is not shown in this build (debug in release) falls back to the first.
-    val shownCategory = if (category == SettingsCategory.DEBUG && !showDebug) SettingsCategory.DICTATION else category
+    val showApp = updateState != null
+    // A category that is not shown in this build (debug in release, app without updater) falls back to the first.
+    val shownCategory = when {
+        category == SettingsCategory.DEBUG && !showDebug -> SettingsCategory.DICTATION
+        category == SettingsCategory.APP && !showApp -> SettingsCategory.DICTATION
+        else -> category
+    }
 
     Box(modifier.fillMaxSize().background(c.bg).testTag(SettingsTags.SCREEN)) {
         if (wide) {
             Row(Modifier.fillMaxSize()) {
-                CategoryPane(shownCategory, showDebug, versionName, onSelect = vm::selectCategory)
+                CategoryPane(shownCategory, showApp, showDebug, versionName, onSelect = vm::selectCategory)
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     when (sub) {
                         SubScreen.PROMPT -> PromptEditorHost(vm, wide = true, initialPromptDialog)
                         SubScreen.TONE -> ToneScreen(vm, ui, actions, wide = true)
-                        null -> DetailPane(shownCategory, ui, actions)
+                        null -> DetailPane(shownCategory, ui, updateState, versionName, actions)
                     }
                 }
             }
@@ -199,7 +205,7 @@ internal fun SettingsRoot(
             when (sub) {
                 SubScreen.PROMPT -> PromptEditorHost(vm, wide = false, initialPromptDialog)
                 SubScreen.TONE -> ToneScreen(vm, ui, actions, wide = false)
-                null -> CoverList(ui, actions, showDebug)
+                null -> CoverList(ui, updateState, versionName, actions, showDebug)
             }
         }
         MurmurSnackbarHost(snack, Modifier.align(Alignment.BottomCenter))
@@ -233,7 +239,7 @@ internal fun SettingsRoot(
 // ================================================================ cover
 
 @Composable
-private fun CoverList(ui: SettingsUi, actions: SettingsActions, showDebug: Boolean) {
+private fun CoverList(ui: SettingsUi, updateState: AppUpdateState?, versionName: String?, actions: SettingsActions, showDebug: Boolean) {
     Column(Modifier.fillMaxSize()) {
         ScreenHeader(stringResource(R.string.settings_title))
         Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).testTag(SettingsTags.LIST)) {
@@ -243,11 +249,12 @@ private fun CoverList(ui: SettingsUi, actions: SettingsActions, showDebug: Boole
             val sections = buildList {
                 add(SettingsCategory.DICTATION); add(SettingsCategory.BUBBLE); add(SettingsCategory.CLEANUP)
                 add(SettingsCategory.PRIVACY); add(SettingsCategory.PERMISSIONS)
+                if (updateState != null) add(SettingsCategory.APP)
                 if (showDebug) add(SettingsCategory.DEBUG)
             }
             sections.forEach { s ->
                 SectionLabel(stringResource(s.title()))
-                SettingsGroup(groupItems(s, ui, actions), Modifier.padding(horizontal = 16.dp))
+                SettingsGroup(groupItems(s, ui, updateState, versionName, actions), Modifier.padding(horizontal = 16.dp))
             }
             Spacer(Modifier.height(24.dp))
         }
@@ -258,9 +265,11 @@ private fun CoverList(ui: SettingsUi, actions: SettingsActions, showDebug: Boole
 
 /** Inner display: 260 dp category list with the screen title, and the version footer at the bottom. */
 @Composable
-private fun CategoryPane(selected: SettingsCategory, showDebug: Boolean, versionName: String?, onSelect: (SettingsCategory) -> Unit) {
+private fun CategoryPane(selected: SettingsCategory, showApp: Boolean, showDebug: Boolean, versionName: String?, onSelect: (SettingsCategory) -> Unit) {
     val c = MurmurTheme.colors
-    val categories = SettingsCategory.entries.filter { it != SettingsCategory.DEBUG || showDebug }
+    val categories = SettingsCategory.entries.filter {
+        (it != SettingsCategory.DEBUG || showDebug) && (it != SettingsCategory.APP || showApp)
+    }
     BoxWithConstraints(
         Modifier
             .width(260.dp)
@@ -318,7 +327,7 @@ private fun CategoryRow(cat: SettingsCategory, selected: Boolean, onClick: () ->
 
 /** Inner detail pane: the category title, the banner, the category's group, and for Cleanup the prompt preview. */
 @Composable
-private fun DetailPane(category: SettingsCategory, ui: SettingsUi, actions: SettingsActions) {
+private fun DetailPane(category: SettingsCategory, ui: SettingsUi, updateState: AppUpdateState?, versionName: String?, actions: SettingsActions) {
     Column(
         Modifier
             .fillMaxSize()
@@ -333,7 +342,7 @@ private fun DetailPane(category: SettingsCategory, ui: SettingsUi, actions: Sett
         if (!ui.serviceConnected) {
             OffBanner(actions, Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp))
         }
-        SettingsGroup(groupItems(category, ui, actions), Modifier.padding(horizontal = 16.dp))
+        SettingsGroup(groupItems(category, ui, updateState, versionName, actions), Modifier.padding(horizontal = 16.dp))
         if (category == SettingsCategory.CLEANUP && ui.prompt != null) {
             Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 20.dp)) {
                 Overline(stringResource(R.string.settings_prompt_preview), Modifier.padding(start = 4.dp, end = 4.dp, bottom = 8.dp))
@@ -378,6 +387,7 @@ private fun SettingsCategory.title(): Int = when (this) {
     SettingsCategory.CLEANUP -> R.string.settings_section_cleanup
     SettingsCategory.PRIVACY -> R.string.settings_section_privacy
     SettingsCategory.PERMISSIONS -> R.string.settings_section_permissions
+    SettingsCategory.APP -> R.string.settings_section_app
     SettingsCategory.DEBUG -> R.string.settings_section_debug
 }
 
@@ -387,16 +397,24 @@ private fun SettingsCategory.icon(): ImageVector = when (this) {
     SettingsCategory.CLEANUP -> MurmurIcons.polish
     SettingsCategory.PRIVACY -> MurmurIcons.shield
     SettingsCategory.PERMISSIONS -> MurmurIcons.lock
+    SettingsCategory.APP -> MurmurIcons.dl
     SettingsCategory.DEBUG -> MurmurIcons.chip
 }
 
 @Composable
-private fun groupItems(category: SettingsCategory, ui: SettingsUi, a: SettingsActions): List<GroupItem> = when (category) {
+private fun groupItems(
+    category: SettingsCategory,
+    ui: SettingsUi,
+    updateState: AppUpdateState?,
+    versionName: String?,
+    a: SettingsActions,
+): List<GroupItem> = when (category) {
     SettingsCategory.DICTATION -> dictationItems(ui.settings, a)
     SettingsCategory.BUBBLE -> bubbleItems(ui.settings, a)
     SettingsCategory.CLEANUP -> cleanupItems(ui, a)
     SettingsCategory.PRIVACY -> privacyItems(ui.settings, a)
     SettingsCategory.PERMISSIONS -> permissionItems(ui, a)
+    SettingsCategory.APP -> appItems(updateState ?: AppUpdateState.Idle, versionName, a)
     SettingsCategory.DEBUG -> debugItems(ui.settings, a)
 }
 
@@ -583,6 +601,52 @@ private fun permissionItems(ui: SettingsUi, a: SettingsActions): List<GroupItem>
             a.openSystem(r.opens)
         }
     }
+}
+
+@Composable
+private fun appItems(state: AppUpdateState, versionName: String?, a: SettingsActions): List<GroupItem> {
+    val c = MurmurTheme.colors
+    val busy = state is AppUpdateState.Checking || state is AppUpdateState.Downloading || state is AppUpdateState.Installing
+    val subtitle = when (state) {
+        AppUpdateState.Idle -> versionName?.let { stringResource(R.string.settings_update_current, it) }
+            ?: stringResource(R.string.settings_update_sub)
+        AppUpdateState.Checking -> stringResource(R.string.settings_update_checking)
+        is AppUpdateState.Downloading -> if (state.progressPercent != null) {
+            stringResource(R.string.settings_update_downloading_pct, state.version, state.progressPercent)
+        } else {
+            stringResource(R.string.settings_update_downloading, state.version)
+        }
+        is AppUpdateState.Installing -> stringResource(R.string.settings_update_installing, state.version)
+        is AppUpdateState.UpToDate -> stringResource(R.string.settings_update_up_to_date, state.currentVersion)
+        AppUpdateState.PermissionRequired -> stringResource(R.string.settings_update_permission)
+        is AppUpdateState.Failed -> stringResource(
+            when (state.reason) {
+                AppUpdateState.Failed.Failure.NETWORK -> R.string.settings_update_err_network
+                AppUpdateState.Failed.Failure.NO_APK -> R.string.settings_update_err_no_apk
+                AppUpdateState.Failed.Failure.VERIFY -> R.string.settings_update_err_verify
+                AppUpdateState.Failed.Failure.INSTALL -> R.string.settings_update_err_install
+            },
+        )
+    }
+    val trailing = when (state) {
+        is AppUpdateState.Downloading -> state.progressPercent?.let { RowTrailing.Value("$it%", c.accentInk) } ?: RowTrailing.None
+        AppUpdateState.Checking, is AppUpdateState.Installing -> RowTrailing.None
+        is AppUpdateState.UpToDate -> RowTrailing.Status(stringResource(R.string.settings_update_latest_badge), StatusKind.Ok, MurmurIcons.check)
+        else -> RowTrailing.Chevron(null)
+    }
+    return listOf(
+        GroupItem {
+            SRow(
+                key = "app-update",
+                title = stringResource(R.string.settings_update),
+                subtitle = subtitle,
+                icon = MurmurIcons.dl,
+                trailing = trailing,
+                enabled = !busy,
+                onClick = if (busy) null else ({ a.vm.checkForUpdates() }),
+            )
+        },
+    )
 }
 
 @Composable

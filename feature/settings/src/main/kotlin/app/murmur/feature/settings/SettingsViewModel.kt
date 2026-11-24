@@ -103,6 +103,13 @@ class SettingsViewModel(
     /** One-shot messages for the snackbar; the UI calls [eventShown]. */
     val events: StateFlow<SettingsEvent?> = _events.asStateFlow()
 
+    /** Manual GitHub Releases update state; null when no updater is wired. */
+    val updateState: StateFlow<AppUpdateState?> = deps.updater?.state ?: MutableStateFlow<AppUpdateState?>(null).asStateFlow()
+
+    fun checkForUpdates() {
+        deps.updater?.checkAndUpdate()
+    }
+
     private val profile: StateFlow<PromptProfile?> = combine(deps.settings.settings, deps.catalog.catalog) { s, c -> activeProfileName(s, c) }
         .map { name -> runCatching { deps.prompts.profile(name) }.getOrNull() }
         .stateIn(this.scope, SharingStarted.Eagerly, runCatching { deps.prompts.profile(activeProfileName(deps.settings.settings.value, deps.catalog.catalog.value)) }.getOrNull())
@@ -434,8 +441,8 @@ internal object SettingsLog {
     }
 }
 
-/** DESIGN 6.5 inner display: the 260 dp category list. [DEBUG] exists in debug builds only. */
-enum class SettingsCategory { DICTATION, BUBBLE, CLEANUP, PRIVACY, PERMISSIONS, DEBUG }
+/** DESIGN 6.5 inner display: the 260 dp category list. [APP] exists when an updater is wired; [DEBUG] in debug builds only. */
+enum class SettingsCategory { DICTATION, BUBBLE, CLEANUP, PRIVACY, PERMISSIONS, APP, DEBUG }
 
 /** Screens below Settings: the prompt editor and Tone per app. */
 enum class SubScreen { PROMPT, TONE }

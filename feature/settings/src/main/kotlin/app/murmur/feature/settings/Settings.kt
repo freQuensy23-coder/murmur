@@ -30,6 +30,8 @@ class SettingsDeps(
     val apps: AppInfoProvider,
     /** Settings > Permissions rows and the "bubble is off" banner. */
     val permissions: PermissionMonitor,
+    /** Manual GitHub Releases updater ("Update" button in Settings); null in screenshot/unit tests. */
+    val updater: AppUpdater? = null,
 )
 
 /**
