@@ -39,6 +39,13 @@ PROFILES = {
                           bound=0.020, ending=0.025, fdel=0.015, tail=0.0, loop=0.0, comma_drop=1.0, latin=False),
     "qwen3_asr":     dict(punct=True, case=True, digits=0.90, keep_hes=0.20, translit=0.20, name_err=0.4, conf=0.03,
                           bound=0.010, ending=0.010, fdel=0.010, tail=0.0, loop=0.002, comma_drop=0.30, latin=True),
+    # ivrit-ai/zipformer2-66m-streaming-he: Hebrew-only transducer, no punctuation, transliterates Latin tech terms
+    # to Hebrew, frequent homophone slips (א/ע/ה, ט/ת, כ/ק, כ/ח, ס/ש, ב/ו) and split/joined prefixes (ב/ל/ה/ו/מ/ש).
+    "zipformer2_he": dict(punct=False, case=False, digits=0.25, keep_hes=0.70, translit=0.92, name_err=0.5, conf=0.055,
+                          bound=0.045, ending=0.0, fdel=0.015, tail=0.0, loop=0.004, comma_drop=1.0, latin=False),
+    # Whisper / multilingual fallback on Hebrew: punctuates lightly, keeps some Latin, occasional silence tails.
+    "whisper_he":    dict(punct=True, case=True, digits=0.75, keep_hes=0.30, translit=0.45, name_err=0.45, conf=0.035,
+                          bound=0.025, ending=0.0, fdel=0.010, tail=0.03, loop=0.003, comma_drop=0.45, latin=True),
 }
 
 WHISPER_TAILS = {
@@ -46,8 +53,20 @@ WHISPER_TAILS = {
            "Редактор субтитров А.Синецкая Корректор А.Егорова", "Спасибо за просмотр!", "Подписывайтесь на канал!"],
     "en": ["Thanks for watching!", "Thank you for watching.", "Please subscribe to my channel.", "Thank you.",
            "Subtitles by the Amara.org community"],
+    "he": ["תודה שצפיתם!", "הירשמו לערוץ!", "כתוביות בעברית", "תודה רבה שצפיתם בסרטון!", "נתראה בסרטון הבא!"],
 }
-HES_RENDER = {"ru": ["э", "э-э", "ээ", "эм", "м-м", "а-а"], "en": ["uh", "um", "uhm", "er", "hmm"]}
+HES_RENDER = {"ru": ["э", "э-э", "ээ", "эм", "м-м", "а-а"], "en": ["uh", "um", "uhm", "er", "hmm"],
+              "he": ["אממ", "אמ", "אהה", "אה", "הממ", "ממ"]}
+
+# Hebrew homophone letter confusions (medial/safe positions) characteristic of zipformer2-66m-streaming-he
+HE_HOMOPHONE_SWAPS = [
+    ("א", "ע"), ("ע", "א"), ("א", "ה"), ("ה", "א"), ("ע", "ה"), ("ה", "ע"),
+    ("ט", "ת"), ("ת", "ט"), ("כ", "ק"), ("ק", "כ"), ("כ", "ח"), ("ח", "כ"),
+    ("ס", "ש"), ("ש", "ס"), ("ב", "ו"), ("ו", "ב"),
+]
+HE_PREFIXES = ("ב", "ל", "ה", "ו", "מ", "ש", "כ")
+_HE_FINAL_FIX = {"כ": "ך", "מ": "ם", "נ": "ן", "פ": "ף", "צ": "ץ"}
+_HE_MEDIAL_FIX = {v: k for k, v in _HE_FINAL_FIX.items()}
 
 BUILTIN_CONF = {
     "ru": [("тся", "ться"), ("ться", "тся")],
@@ -61,6 +80,10 @@ BUILTIN_CONF = {
                  ("here", "hear"), ("know", "no"), ("right", "write"), ("buy", "by"), ("for", "four"),
                  ("new", "knew"), ("wait", "weight"), ("we'll", "will"), ("could have", "could of"),
                  ("going to", "gonna"), ("want to", "wanna"), ("all right", "alright"), ("a lot", "alot")],
+    "he_words": [("עם", "אם"), ("אם", "עם"), ("על", "אל"), ("אל", "על"), ("כל כך", "כלכך"), ("בסדר", "ב סדר"),
+                 ("אחר כך", "אחרכך"), ("בגלל", "ב גלל"), ("אצל", "עצל"), ("קרה", "קרא"), ("קרא", "קרה"),
+                 ("עכשיו", "אכשיו"), ("כאן", "כן"), ("מאוד", "מעוד"), ("טוב", "תוב"), ("פשוט", "פשות"),
+                 ("תודה", "טודה"), ("כמובן", "חמובן"), ("שלום", "סלום"), ("מספר", "משפר")],
 }
 RU_ENDINGS = [("ами", "ам"), ("ого", "ой"), ("ыми", "ым"), ("ими", "им"), ("ется", "ет"), ("ются", "ют"),
               ("ала", "ал"), ("или", "ил"), ("ую", "ая"), ("ых", "ый"), ("ому", "ом"), ("ться", "ть"), ("ешь", "ет"),
@@ -131,6 +154,30 @@ def respell_ru(word: str, r: random.Random) -> str:
     return word[:i] + b + word[i + len(a):]
 
 
+def respell_he(word: str, r: random.Random) -> str:
+    """Hebrew ASR homophone slip in a word or surname (א/ע/ה, ט/ת, כ/ק, כ/ח, ס/ש, ב/ו),
+    preserving Hebrew final-letter forms (ךםןףץ)."""
+    if len(word) < 3:
+        return word
+    cands = [(i, a, b) for i in range(len(word)) for a, b in HE_HOMOPHONE_SWAPS if word[i] == a]
+    if not cands:
+        return word
+    i, a, b = r.choice(cands)
+    if i == len(word) - 1 and b in _HE_FINAL_FIX:
+        b = _HE_FINAL_FIX[b]
+    elif i < len(word) - 1 and b in _HE_MEDIAL_FIX:
+        b = _HE_MEDIAL_FIX[b]
+    return word[:i] + b + word[i + 1:]
+
+
+def heb_form(e_text: str, r: random.Random) -> str:
+    """How a Hebrew ASR engine (e.g. zipformer2-66m-streaming-he) transliterates a Latin tech term."""
+    forms = L.TECH_HE.get(e_text)
+    if forms:
+        return r.choice(forms)
+    return " ".join(T.lat2heb_rough(w) for w in T.words(e_text))
+
+
 def cyr_form(e_text: str, r: random.Random) -> str:
     e = L.BY_TEXT.get(e_text)
     if e and e.spoken_ru:
@@ -150,34 +197,69 @@ def _scale(p: float, difficulty: float) -> float:
     return p * (0.3 + 1.4 * difficulty)
 
 
+def _he_translit_token(tok: str, r: random.Random) -> str:
+    """Transliterate a Latin token (optionally with Hebrew prefix like 'ל-GitHub') into Hebrew."""
+    m = re.match(r"^([\u05d0-\u05ea])-([A-Za-z][A-Za-z0-9._+-]*)([^\w]*)$", tok)
+    if m:
+        pref, lat, trail = m.groups()
+        hf = heb_form(lat, r)
+        # zipformer2 either glues prefix ('לגיטהאב') or splits it ('ל גיטהאב')
+        sep = " " if r.random() < 0.3 else ""
+        return pref + sep + hf + trail
+    if T.is_lat(tok):
+        core = re.sub(r"[^\w.+_-]+$", "", tok)
+        return heb_form(core, r) + tok[len(core):]
+    return tok
+
+
 def noise(spoken: str, target: str, lang: str, profile: str, difficulty: float, r: random.Random,
           entities: list[dict] | None = None, lower: bool = False, force_tail: bool = False) -> Noised:
     P = PROFILES[profile]
     out = Noised(hyp="", profile=profile)
     toks = spoken.split()
-    tlang = "ru" if lang in ("ru", "mixed") else "en"
+    tlang = "he" if lang in ("he", "he_en", "he_ru") else ("ru" if lang in ("ru", "mixed") else "en")
 
-    # 1) entities: Latin terms in Russian speech -> Cyrillic; names mis-heard
+    # 1) entities: Latin terms in Russian/Hebrew speech -> Cyrillic/Hebrew; names mis-heard
     for ent in entities or []:
         etext, kind = ent["text"], ent["kind"]
         ew = etext.split()
         low = [t.lower().strip(",.!?") for t in toks]
+        # also match Hebrew-prefixed single-word Latin terms like "ל-GitHub"
         for i in range(len(toks) - len(ew) + 1):
-            if low[i:i + len(ew)] != [w.lower() for w in ew]:
+            he_pref = ""
+            if len(ew) == 1 and tlang == "he":
+                mp = re.match(r"^([\u05d0-\u05ea])-(.+)$", low[i])
+                if mp and mp.group(2) == ew[0].lower():
+                    he_pref = mp.group(1)
+                elif low[i] != ew[0].lower():
+                    continue
+            elif low[i:i + len(ew)] != [w.lower() for w in ew]:
                 continue
-            if T.is_lat(etext) and tlang == "ru" and (r.random() < P["translit"] or not P["latin"]) and kind != "person_en":
+            if T.is_lat(etext) and tlang == "he" and (r.random() < P["translit"] or not P["latin"]) and kind != "person_en":
+                form = heb_form(etext, r)
+                if he_pref:
+                    form = he_pref + (" " if r.random() < 0.3 else "") + form
+                toks[i:i + len(ew)] = form.split()
+                out.corruptions.append({"entity": etext, "kind": kind, "to": form, "op": "translit"})
+                out.ops.append({"op": "translit", "from": etext, "to": form})
+            elif T.is_lat(etext) and tlang == "ru" and (r.random() < P["translit"] or not P["latin"]) and kind != "person_en":
                 form = cyr_form(etext, r)
                 form = _case_ending(toks[i - 1] if i else "", form, r)
                 toks[i:i + len(ew)] = form.split()
                 out.corruptions.append({"entity": etext, "kind": kind, "to": form, "op": "translit"})
                 out.ops.append({"op": "translit", "from": etext, "to": form})
-            elif kind in ("person_ru", "person_en") and r.random() < P["name_err"]:
+            elif kind in ("person_ru", "person_en", "person_he") and r.random() < P["name_err"]:
                 sur_i = i + len(ew) - 1
                 old = toks[sur_i]
                 core = re.sub(r"[,.!?]+$", "", old)
-                new = respell_ru(core, r) if T.is_cyr(core) else respell_en(core, r)
+                if T.is_heb(core):
+                    new = respell_he(core, r)
+                elif T.is_cyr(core):
+                    new = respell_ru(core, r)
+                else:
+                    new = respell_en(core, r)
                 if not P["latin"] and T.is_lat(new):
-                    new = T.lat2cyr_rough(new)
+                    new = T.lat2heb_rough(new) if tlang == "he" else T.lat2cyr_rough(new)
                 if new != core:
                     toks[sur_i] = new + old[len(core):]
                     out.corruptions.append({"entity": etext, "kind": kind, "to": new, "from_token": core, "op": "name"})
@@ -192,14 +274,14 @@ def noise(spoken: str, target: str, lang: str, profile: str, difficulty: float, 
 
     # 2) word-level confusions, boundary errors, dropped endings, function-word deletions
     mined = mined_confusions(tlang)
-    words_conf = BUILTIN_CONF["ru_words" if tlang == "ru" else "en_words"]
+    words_conf = BUILTIN_CONF["he_words" if tlang == "he" else "ru_words" if tlang == "ru" else "en_words"]
     res: list[str] = []
     i = 0
     protected = {w.lower() for e in (entities or []) for w in e["text"].split()}
     while i < len(toks):
         w = toks[i]
         wl = w.lower()
-        if wl in protected or wl in T.NEGATIONS_RU or wl in T.NEGATIONS_EN:
+        if wl in protected or wl in T.NEGATIONS_RU or wl in T.NEGATIONS_EN or wl in T.NEGATIONS_HE:
             res.append(w)
             i += 1
             continue
@@ -222,11 +304,22 @@ def noise(spoken: str, target: str, lang: str, profile: str, difficulty: float, 
                         if wl.endswith(a2):
                             b = wl[: -len(a2)] + b2
                             break
+                elif b is None and tlang == "he" and T.is_heb(wl) and len(wl) >= 4:
+                    core = re.sub(r"[,.!?]+$", "", w)
+                    swapped = respell_he(core, r)
+                    if swapped != core:
+                        b = swapped + w[len(core):]
             if b and b != wl:
                 res.append(b)
                 out.ops.append({"op": "conf", "from": wl, "to": b})
                 i += 1
                 continue
+        # Hebrew prefix split ('בבית' -> 'ב בית', 'לגיטהאב' -> 'ל גיטהאב') or join
+        if tlang == "he" and T.is_heb(wl) and len(wl) >= 4 and wl[0] in HE_PREFIXES and "-" not in wl and r.random() < _scale(P["bound"], difficulty):
+            res.extend([w[0], w[1:]])
+            out.ops.append({"op": "split_prefix", "from": w, "to": w[0] + " " + w[1:]})
+            i += 1
+            continue
         if len(wl) >= 8 and r.random() < _scale(P["bound"], difficulty):
             k = r.randint(3, len(wl) - 3)
             res.extend([w[:k], w[k:]])
@@ -249,7 +342,8 @@ def noise(spoken: str, target: str, lang: str, profile: str, difficulty: float, 
             out.ops.append({"op": "ending", "from": w, "to": nw})
             i += 1
             continue
-        if wl in T.FUNCTION_WORDS and len(wl) <= 3 and r.random() < _scale(P["fdel"], difficulty):
+        he_fdel_ok = {"את", "של", "על", "אל", "עם", "או", "גם", "כי", "אז"}
+        if ((tlang != "he" and wl in T.FUNCTION_WORDS and len(wl) <= 3) or (tlang == "he" and wl in he_fdel_ok)) and r.random() < _scale(P["fdel"], difficulty):
             out.ops.append({"op": "fdel", "from": w})
             i += 1
             continue
@@ -269,9 +363,21 @@ def noise(spoken: str, target: str, lang: str, profile: str, difficulty: float, 
         res.append(w)
     toks = res
 
-    # 4) T-one / Russian-only engines: no Latin at all
+    # 4) T-one / zipformer2_he (single-script engines): transliterate Latin tokens
     if not P["latin"]:
-        toks = [T.lat2cyr_rough(w) if T.is_lat(w) else w for w in toks]
+        if tlang == "he":
+            new_toks = []
+            for w in toks:
+                if T.is_lat(w) or re.match(r"^[\u05d0-\u05ea]-[A-Za-z]", w):
+                    tw = _he_translit_token(w, r)
+                    new_toks.extend(tw.split())
+                    if tw != w:
+                        out.ops.append({"op": "translit", "from": w, "to": tw})
+                else:
+                    new_toks.append(w)
+            toks = new_toks
+        else:
+            toks = [T.lat2cyr_rough(w) if T.is_lat(w) else w for w in toks]
 
     # 5) numbers: words -> digits per engine
     hyp_words = toks
@@ -284,7 +390,7 @@ def noise(spoken: str, target: str, lang: str, profile: str, difficulty: float, 
     if P["punct"] and not lower:
         hyp = _project_punct(hyp_words, target, P, r, tlang)
     else:
-        hyp = " ".join(re.sub(r"[^\w\s'’-]", "", w).lower() for w in hyp_words)
+        hyp = " ".join(re.sub(r"[^\w\s'’\-׳״]", "", w).lower() for w in hyp_words)
         if not P["latin"]:
             hyp = hyp.replace("-", " ")
         out.ops.append({"op": "lower_nopunct"})
@@ -341,7 +447,8 @@ def _digitise(toks: list[str], lang: str, r: random.Random) -> list[str]:
 
 UNIT_PREFIXES = ("процент", "рубл", "долл", "евро", "час", "минут", "секунд", "км", "метр", "килограмм", "грамм",
                  "гигабайт", "мегабайт", "тысяч", "миллион", "percent", "dollar", "euro", "hour", "minute", "second",
-                 "pm", "am", "gb", "mb", "kg", "km", "thousand", "million", "%", "$", "₽", "€")
+                 "pm", "am", "gb", "mb", "kg", "km", "thousand", "million", "%", "$", "₽", "€",
+                 "שקל", "שקלים", "אחוז", "אחוזים", "דקה", "דקות", "שעה", "שעות", "שניה", "שניות", "קילו", "מטר", "₪")
 
 
 def _keep_as_words(toks: list[str], norm: list[str], a: int, b: int, v: int, starts: dict) -> bool:

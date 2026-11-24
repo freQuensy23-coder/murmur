@@ -40,11 +40,14 @@ END_MARKS = ".!?…"
 MAX_FACTOR = 2.0
 NUMW = set("one two three four five six seven eight nine ten eleven twelve twenty thirty forty fifty hundred thousand "
            "один два три четыре пять шесть семь восемь девять десять двадцать тридцать сорок пятьдесят сто тысяч "
-           "тысячи".split())
+           "тысячи "
+           "אחד אחת שתיים שניים שלוש שלושה ארבע ארבעה חמש חמישה שש שישה שבע שבעה שמונה תשע תשעה עשר עשרה "
+           "עשרים שלושים ארבעים חמישים מאה מאתיים אלף אלפיים".split())
 
 
 def toks(s: str) -> list[str]:
-    return re.findall(r"[\w'-]+", s.lower().replace("ё", "е"))
+    s = re.sub(r"[\u0591-\u05c7]", "", s or "")
+    return re.findall(r"[\w'\-׳״]+", s.lower().replace("ё", "е"))
 
 
 def _matched(a: list[str], b: list[str]) -> set[int]:
@@ -180,8 +183,9 @@ def audit(d: Path, rows: list[dict] | None) -> dict:
             if _norm(t) in _norm(x["target"]) and _norm(t) not in _norm(x["transcript"]) and _norm(t) not in scr:
                 fixed[t].append((x["id"], f))
     cyr = lambda s: bool(re.search("[а-яё]", s, re.I))  # noqa: E731
+    heb = lambda s: bool(re.search("[\u05d0-\u05ea]", s))  # noqa: E731
     nwk = [(t, i, f) for t, v in fixed.items() for i, f in v if not is_well_known(t)]
-    conflict = sorted(t for t in set(fixed) & set(kept) if any(cyr(f) for _, f in fixed[t]))
+    conflict = sorted(t for t in set(fixed) & set(kept) if any(cyr(f) or heb(f) for _, f in fixed[t]))
     rep["F1_term_fix_no_screen_records"] = len({i for v in fixed.values() for i, _ in v})
     rep["F1_non_well_known_fix_records"] = len({i for _, i, _ in nwk})
     rep["F1_non_well_known_cyrillic_fix_records"] = len({i for _, i, f in nwk if cyr(f)})
@@ -214,7 +218,7 @@ def audit(d: Path, rows: list[dict] | None) -> dict:
     for x in tr:
         g = x["meta"].get("garble") or {}
         if "term" in g and x["lang"] != "en":
-            gs[x["meta"]["asr_model"]]["cyr" if cyr(g["form"]) else "lat"] += 1
+            gs[x["meta"]["asr_model"]]["heb" if heb(g["form"]) else "cyr" if cyr(g["form"]) else "lat"] += 1
         if "term" in g and x["category"] == "context_resolution":
             src[g.get("source")] += 1
     tot = Counter()

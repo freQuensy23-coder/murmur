@@ -21,7 +21,7 @@ STAGE ?= all
 RESERVE ?= train/context_resolution=150,train/near_miss=58,train/injection=18,train/list=5,dev/context_resolution=15,dev/near_miss=6,dev/injection=3,dev/list=1,test/context_resolution=15,test/near_miss=6,test/injection=3,test/list=1;train/address=6,train/injection=6,dev/context_names=4,dev/address=2;train/near_miss=16,train/meaningful_filler=5,train/address=5,train/injection=3,dev/near_miss=5,test/meaningful_filler=3;train/injection=4;train/near_miss=4,train/injection=6,dev/context_irrelevant=3
 MINED_ARG := $(if $(MINED),--mined $(MINED),)
 
-.PHONY: venv test stub proof synth rebuild recheck sample public validate contam disfl-probe realism-measure realism-calibrate audit
+.PHONY: venv test stub proof synth rebuild recheck sample public validate contam disfl-probe realism-measure realism-calibrate audit girgur-hebrew girgur-merge
 
 venv:   # secondary venv for the public converters (pyarrow) and tests
 	uv venv -q -p 3.13 $(REPO)/.cache/ml/data/venv && uv pip install -q -p $(PYPUB) -r $(REPO)/ml/data/requirements.txt
@@ -81,6 +81,19 @@ validate:
 # held-out eval sets (prompts/eval) vs a run and vs the teacher prompt's quoted examples
 contam:
 	cd $(REPO) && $(PY) -m ml.data.contam --prompt --data $(OUT)
+
+# Girgur (ru + en + he): generate Hebrew+mixed shard (1200/150/150) and merge with .cache/ml/data/final -> .cache/ml/data/girgur
+HEBREW_OUT ?= $(REPO)/.cache/ml/data/hebrew_v1
+GIRGUR_BASE ?= $(REPO)/.cache/ml/data/final
+GIRGUR_OUT ?= $(REPO)/.cache/ml/data/girgur
+girgur-hebrew:
+	cd $(REPO) && tools/with-teacher $(HEAVY) $(PY) -m ml.data.generate_hebrew \
+	    --hebrew-out $(HEBREW_OUT) --base-dir $(GIRGUR_BASE) --out $(GIRGUR_OUT) \
+	    --n 1200 --dev 150 --test 150 --workers $(WORKERS) --screens real --ctx-cache $(CTX_CACHE)
+
+girgur-merge:
+	cd $(REPO) && $(PY) -m ml.data.generate_hebrew --merge-only \
+	    --hebrew-out $(HEBREW_OUT) --base-dir $(GIRGUR_BASE) --out $(GIRGUR_OUT)
 
 # per-ASR-model rendering of hesitations / repeats: CPU TTS -> every ASR model (~35 min, ml/roundtrip runner,
 # read-only use), then ml/data/probe/disfluency_render.v1.json

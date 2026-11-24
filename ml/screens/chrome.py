@@ -17,10 +17,12 @@ DEVICES = {
 }
 
 FONTS = {
-    "roboto": "'Roboto Var', 'Noto Color Emoji'",
-    "noto": "'Noto Sans Var', 'Noto Color Emoji'",
+    "roboto": "'Roboto Var', 'Noto Sans Hebrew', 'Rubik', 'Heebo', 'Arial', 'Noto Color Emoji'",
+    "noto": "'Noto Sans Var', 'Noto Sans Hebrew', 'Rubik', 'Heebo', 'Arial', 'Noto Color Emoji'",
+    "hebrew": "'Noto Sans Hebrew', 'Rubik', 'Heebo', 'Arial', 'Roboto Var', 'Noto Color Emoji'",
 }
-MONO = {"roboto_mono": "'Roboto Mono Var', 'Noto Color Emoji'", "jetbrains": "'JetBrains Mono Var', 'Noto Color Emoji'"}
+MONO = {"roboto_mono": "'Roboto Mono Var', 'Noto Sans Hebrew', 'Arial', 'Noto Color Emoji'",
+        "jetbrains": "'JetBrains Mono Var', 'Noto Sans Hebrew', 'Arial', 'Noto Color Emoji'"}
 
 e = html.escape
 
@@ -50,6 +52,10 @@ def css_base(theme: str, accent: str, font: str, font_scale: float, extra: str =
 @font-face{{font-family:'Noto Sans Var';src:url('fonts/NotoSans[wdth,wght].ttf');font-weight:100 900}}
 @font-face{{font-family:'Roboto Mono Var';src:url('fonts/RobotoMono[wght].ttf');font-weight:100 900}}
 @font-face{{font-family:'JetBrains Mono Var';src:url('fonts/JetBrainsMono[wght].ttf');font-weight:100 900}}
+@font-face{{font-family:'Noto Sans Hebrew';src:url('fonts/NotoSansHebrew[wdth,wght].ttf'),url('fonts/NotoSansHebrew.ttf'),url('ocr_fonts/NotoSansHebrew.ttf'),local('Noto Sans Hebrew'),local('Arial Hebrew');font-weight:100 900}}
+@font-face{{font-family:'Rubik';src:url('fonts/Rubik.ttf'),url('ocr_fonts/Rubik.ttf'),local('Rubik');font-weight:100 900}}
+@font-face{{font-family:'Heebo';src:url('fonts/Heebo.ttf'),url('ocr_fonts/Heebo.ttf'),local('Heebo');font-weight:100 900}}
+@font-face{{font-family:'Assistant';src:url('fonts/Assistant.ttf'),url('ocr_fonts/Assistant.ttf'),local('Assistant');font-weight:100 900}}
 @font-face{{font-family:'Noto Color Emoji';src:url('fonts/NotoColorEmoji-Regular.ttf')}}
 :root{{{vars_};--accent:{accent};--fs:{font_scale}}}
 *{{box-sizing:border-box;margin:0;padding:0;animation:none!important;transition:none!important;caret-color:transparent}}
@@ -98,6 +104,10 @@ html,body{{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var
 .fab{{position:absolute;right:16px;width:56px;height:56px;border-radius:16px;background:color-mix(in srgb,var(--accent) 30%,var(--bg));
   display:flex;align-items:center;justify-content:center;z-index:5;box-shadow:0 2px 6px rgba(0,0,0,.25)}}
 .chip{{display:inline-flex;align-items:center;height:30px;padding:0 12px;border-radius:8px;border:1px solid var(--divider);font-size:{fs(14)};white-space:nowrap}}
+[dir="rtl"] .statusbar{{direction:ltr}}
+[dir="rtl"] .fab{{right:auto;left:16px}}
+[dir="rtl"] .cursor{{margin-left:0;margin-right:1px}}
+[dir="rtl"] .appbar{{padding:0 4px 0 8px}}
 {extra}
 """
 
@@ -199,29 +209,31 @@ def gesture_bar() -> str:
 
 KB_RU = ["йцукенгшщзх", "фывапролджэ", "ячсмитьбю"]
 KB_EN = ["qwertyuiop", "asdfghjkl", "zxcvbnm"]
+KB_HE = ["קראטוןםפ", "שדגכעיחלךף", "זסבהנמצתץ"]
 SUGG = {"ru": [["и", "в", "не"], ["Привет", "Да", "Спасибо"], ["что", "это", "как"], ["сейчас", "завтра", "ок"]],
-        "en": [["I", "the", "and"], ["Thanks", "Yes", "OK"], ["it", "is", "to"], ["sure", "today", "on my way"]]}
+        "en": [["I", "the", "and"], ["Thanks", "Yes", "OK"], ["it", "is", "to"], ["sure", "today", "on my way"]],
+        "he": [["אני", "את", "זה"], ["שלום", "כן", "תודה"], ["מה", "על", "גם"], ["עכשיו", "מחר", "סבבה"]]}
 
 
 def keyboard(layout: str, r: random.Random, wide: bool = False, numbers: bool | None = None) -> str:
     """On-screen keyboard (Gboard / Samsung Keyboard look-alike) with a suggestion strip."""
-    rows = KB_RU if layout == "ru" else KB_EN
+    rows = KB_RU if layout == "ru" else KB_HE if layout == "he" else KB_EN
     if numbers is None:
         numbers = r.random() < 0.5
-    sugg = r.choice(SUGG["ru" if layout == "ru" else "en"])
+    sugg = r.choice(SUGG["ru" if layout == "ru" else "he" if layout == "he" else "en"])
     h = []
     h.append('<div class="kb-sugg">' + "".join(f"<div>{e(s)}</div>" for s in sugg) + "</div>")
     if numbers:
-        h.append('<div class="kb-row">' + "".join(f'<div class="key" style="height:36px;font-size:17px">{d}</div>'
-                                                  for d in "1234567890") + "</div>")
+        h.append('<div class="kb-row" dir="ltr">' + "".join(f'<div class="key" style="height:36px;font-size:17px">{d}</div>'
+                                                            for d in "1234567890") + "</div>")
     for i, row in enumerate(rows):
         keys = "".join(f'<div class="key">{c}{"" if numbers else f"<sup>{(j + 1) % 10}</sup>" if i == 0 and j < 10 else ""}</div>'
                        for j, c in enumerate(row))
         if i == 2:
             keys = f'<div class="key w">⇧</div>{keys}<div class="key w">{icon("bksp", 20)}</div>'
-        h.append(f'<div class="kb-row">{keys}</div>')
-    lang = "Русский" if layout == "ru" else "English"
-    h.append(f'<div class="kb-row"><div class="key w">!#1</div><div class="key">,</div><div class="key w">'
+        h.append(f'<div class="kb-row" dir="ltr">{keys}</div>' if layout == "he" else f'<div class="kb-row">{keys}</div>')
+    lang = "Русский" if layout == "ru" else "עברית" if layout == "he" else "English"
+    h.append(f'<div class="kb-row"{" dir=\"ltr\"" if layout == "he" else ""}><div class="key w">!#1</div><div class="key">,</div><div class="key w">'
              f'{icon("globe", 18)}</div><div class="key space">{lang}</div><div class="key">.</div>'
              f'<div class="key w">{icon("enter", 20)}</div></div>')
     style = "padding-left:18%;padding-right:18%" if wide and r.random() < 0.5 else ""
@@ -253,7 +265,7 @@ def murmur_bubble(r: random.Random, css_w: int, css_h: int, top_min: int, top_ma
     x = 8 if side == "left" else None
     pos = f"top:{y}px;" + (f"left:{x}px;" if x is not None else "right:8px;")
     if pill:
-        label = "Слушаю…" if locale == "ru" else "Listening…"
+        label = "Слушаю…" if locale == "ru" else "מקשיב…" if locale == "he" else "Listening…"
         return (f'<div class="bubble pill" data-exclude="murmur_bubble" data-role="murmur" style="{pos}height:44px">'
                 f'{icon("mic", 20)}<span>{label}</span></div>')
     return f'<div class="bubble" data-exclude="murmur_bubble" data-role="murmur" style="{pos}">{icon("mic", 26)}</div>'
@@ -268,6 +280,11 @@ def nav_bar(items: list[tuple[str, str]], on: int, badges: dict | None = None) -
     return f'<div class="navbar" data-role="chrome">{"".join(cells)}</div>'
 
 
-def page(css: str, body: str, title: str = "screen") -> str:
-    return (f'<!doctype html><html><head><meta charset="utf-8"><title>{e(title)}</title><style>{css}</style></head>'
+def page(css: str, body: str, title: str = "screen", direction: str = "ltr", lang: str = "") -> str:
+    attrs = ""
+    if direction == "rtl":
+        attrs += ' dir="rtl"'
+    if lang:
+        attrs += f' lang="{e(lang)}"'
+    return (f'<!doctype html><html{attrs}><head><meta charset="utf-8"><title>{e(title)}</title><style>{css}</style></head>'
             f'<body><div id="screen">{body}</div></body></html>')

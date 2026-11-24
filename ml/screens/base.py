@@ -69,7 +69,8 @@ def new_ctx(spec: dict) -> Ctx:
     dev = C.DEVICES[spec.get("device", "fold7_cover")]
     locale = spec.get("locale", "ru")
     avoid = list(spec.get("avoid") or [])
-    return Ctx(spec=spec, r=r, dev=dev, ui=UI["ru" if locale == "ru" else "en"], fill=Filler(r, locale, avoid),
+    ui_key = locale if locale in UI else "en"
+    return Ctx(spec=spec, r=r, dev=dev, ui=UI[ui_key], fill=Filler(r, locale, avoid),
                theme=spec.get("theme", "light"), accent=spec.get("accent") or r.choice(C.ACCENTS), locale=locale,
                wide=spec.get("device") == "fold7_inner")
 
@@ -80,7 +81,11 @@ def frame(c: Ctx, app_html: str, extra_css: str = "", status_style: str = "", bu
     clock = c.spec.get("clock") or c.fill.clock()
     kb = ""
     if c.keyboard:
-        layout = c.spec.get("keyboard_layout") or (c.locale if c.r.random() < 0.75 else ("en" if c.locale == "ru" else "ru"))
+        if c.locale == "he":
+            default_kb = "he" if c.r.random() < 0.75 else "en"
+        else:
+            default_kb = c.locale if c.r.random() < 0.75 else ("en" if c.locale == "ru" else "ru")
+        layout = c.spec.get("keyboard_layout") or default_kb
         kb = keyboard_html if keyboard_html is not None else C.keyboard(layout, c.r, wide=c.wide)
     bubble = ""
     if c.spec.get("bubble", c.r.random() < 0.5):
@@ -90,8 +95,11 @@ def frame(c: Ctx, app_html: str, extra_css: str = "", status_style: str = "", bu
     body = (f'<div style="{status_style}">{C.status_bar(c.r, clock)}</div>'
             f'<div class="grow col" style="position:relative;overflow:hidden">{app_html}{over}</div>'
             f'{kb}{C.gesture_bar()}{bubble}')
-    font = c.spec.get("font") or ("roboto" if c.r.random() < 0.7 else "noto")
+    default_font = "hebrew" if c.locale == "he" else ("roboto" if c.r.random() < 0.7 else "noto")
+    font = c.spec.get("font") or default_font
     css = C.css_base(c.theme, c.accent, font, float(c.spec.get("font_scale", 1.0)), extra_css + "".join(c.css))
+    if c.locale == "he":
+        return C.page(css, body, c.title or c.spec.get("template", "screen"), direction="rtl", lang="he")
     return C.page(css, body, c.title or c.spec.get("template", "screen"))
 
 
@@ -104,6 +112,10 @@ OVERLAYS = {
            "translate_btn": "Translate", "cookies": "We use cookies", "accept": "Accept",
            "notif_allow": "Allow this app to send you notifications?", "allow": "Allow", "deny": "Don't allow",
            "update": "Update available", "now": "now"},
+    "he": {"sent": "ההודעה נשלחה", "undo": "ביטול", "copied": "הועתק ללוח", "translate": "לתרגם את הדף הזה?",
+           "translate_btn": "תרגם", "cookies": "אנחנו משתמשים בעוגיות", "accept": "אישור",
+           "notif_allow": "לאפשר לאפליקציה לשלוח לך התראות?", "allow": "אפשר", "deny": "אל תאפשר",
+           "update": "קיים עדכון חדש", "now": "עכשיו"},
 }
 
 
@@ -115,11 +127,13 @@ def overlay(c: Ctx) -> str:
         x = c.r.random()
         kind = "headsup" if x < 0.08 else "snackbar" if x < 0.15 else "dialog" if x < 0.18 else \
             "banner" if x < 0.25 and c.spec.get("template", "").startswith("browser") else "none"
-    t = OVERLAYS["ru" if c.locale == "ru" else "en"]
+    t = OVERLAYS[c.locale if c.locale in OVERLAYS else "en"]
     if kind == "headsup":
         who = (c.fill.names(1) or ["—"])[0]
         msg = (c.fill.msgs(1) or [""])[0]
-        app = c.r.choice(["Почта", "Mail", "Messages", "Сообщения", "Calendar", "Банк"])
+        apps = ["דואר", "הודעות", "יומן", "בנק", "Mail", "Messages"] if c.locale == "he" else \
+            ["Почта", "Mail", "Messages", "Сообщения", "Calendar", "Банк"]
+        app = c.r.choice(apps)
         return (f'<div style="position:absolute;top:6px;left:8px;right:8px;z-index:40;background:var(--surface2);border-radius:20px;'
                 f'padding:10px 14px;box-shadow:0 4px 14px rgba(0,0,0,.3)"><div class="row t2" style="gap:6px;font-size:{C.fs(12)}">'
                 f'{C.icon("chat", 14)}<span data-role="filler">{C.e(app)} · {t["now"]}</span></div>'

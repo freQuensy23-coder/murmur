@@ -11,23 +11,32 @@ import unicodedata
 from functools import lru_cache
 
 # ------------------------------------------------------------------ basics
-_WORD = re.compile(r"[0-9A-Za-zÀ-ɏͰ-ϿЀ-ӿ]+(?:['’\-][0-9A-Za-zÀ-ɏͰ-ϿЀ-ӿ]+)*")
+_NIQQUD = re.compile(r"[\u0591-\u05c7]")
+_WORD = re.compile(
+    r"[0-9A-Za-zÀ-ɏͰ-ϿЀ-ӿ\u05d0-\u05ea]+(?:['’\-׳״][0-9A-Za-zÀ-ɏͰ-ϿЀ-ӿ\u05d0-\u05ea]+)*׳?"
+)
 _CYR = re.compile(r"[Ѐ-ӿ]")
 _LAT = re.compile(r"[A-Za-zÀ-ɏ]")
+_HEB = re.compile(r"[\u05d0-\u05ea]")
 
 
 def nfc(s: str) -> str:
     return unicodedata.normalize("NFC", s or "")
 
 
+def strip_niqqud(s: str) -> str:
+    """Remove Hebrew cantillation/vowel combining marks (U+0591..U+05C7)."""
+    return _NIQQUD.sub("", s or "")
+
+
 def words(s: str) -> list[str]:
-    """Surface word tokens (letters/digits, inner hyphen/apostrophe kept)."""
-    return _WORD.findall(nfc(s))
+    """Surface word tokens (letters/digits, inner hyphen/apostrophe/geresh/gershayim kept)."""
+    return _WORD.findall(strip_niqqud(nfc(s)))
 
 
 def norm_word(w: str) -> str:
-    """Case/ё/apostrophe-insensitive key of one word."""
-    w = nfc(w).lower().replace("ё", "е").replace("’", "'")
+    """Case/ё/apostrophe/niqqud-insensitive key of one word."""
+    w = strip_niqqud(nfc(w)).lower().replace("ё", "е").replace("’", "'")
     return w
 
 
@@ -52,17 +61,42 @@ def script_counts(s: str) -> tuple[int, int]:
     return len(_CYR.findall(s or "")), len(_LAT.findall(s or ""))
 
 
+def script_counts_3(s: str) -> tuple[int, int, int]:
+    """(cyrillic letters, latin letters, hebrew letters)."""
+    s = s or ""
+    return len(_CYR.findall(s)), len(_LAT.findall(s)), len(_HEB.findall(s))
+
+
 def cyr_share(s: str) -> float:
     c, l = script_counts(s)
     return c / (c + l) if c + l else 0.0
 
 
+def heb_share(s: str) -> float:
+    c, l, h = script_counts_3(s)
+    tot = c + l + h
+    return h / tot if tot else 0.0
+
+
 def guess_lang(s: str) -> str:
-    """'ru' | 'en' | 'mixed' | '' by script share. Latin product names inside
-    Russian text keep it 'ru' as long as Cyrillic dominates."""
+    """'ru' | 'en' | 'mixed' | 'he' | 'he_en' | 'he_ru' | '' by script share.
+    Latin product names inside Russian/Hebrew text keep it 'ru'/'he' as long as
+    the primary script dominates."""
     ws = [w for w in words(s) if not w.isdigit()]
     if not ws:
         return ""
+    n_heb = sum(1 for w in ws if is_heb(w))
+    if n_heb:
+        n_cyr = sum(1 for w in ws if is_cyr(w))
+        n_lat = sum(1 for w in ws if _LAT.search(w))
+        n_heb_only = sum(1 for w in ws if is_heb(w) and not _LAT.search(w) and not _CYR.search(w))
+        if n_cyr >= 1 and n_heb >= 1 and n_heb_only / len(ws) < 0.85:
+            return "he_ru"
+        if n_heb_only / len(ws) >= 0.75 and n_cyr == 0:
+            return "he"
+        if n_lat >= 1:
+            return "he_en"
+        return "he_ru" if n_cyr else "he"
     share = sum(1 for w in ws if is_cyr(w)) / len(ws)
     if share >= 0.75:
         return "ru"
@@ -75,8 +109,12 @@ def is_cyr(w: str) -> bool:
     return bool(_CYR.search(w))
 
 
+def is_heb(w: str) -> bool:
+    return bool(_HEB.search(w))
+
+
 def is_lat(w: str) -> bool:
-    return bool(_LAT.search(w)) and not _CYR.search(w)
+    return bool(_LAT.search(w)) and not _CYR.search(w) and not _HEB.search(w)
 
 
 # ------------------------------------------------------------------ lexicons
@@ -86,11 +124,14 @@ FILLER_PHRASES_EN = ["you know", "i mean", "kind of", "sort of", "like", "basica
 FILLERS_RU = {"э", "ээ", "эээ", "э-э", "э-э-э", "м", "мм", "ммм", "м-м", "а-а", "ам", "эм", "хм", "ну-у"}
 FILLER_PHRASES_RU = ["ну", "вот", "короче", "типа", "как бы", "в общем", "значит", "слушай", "это самое",
                      "так сказать", "в принципе", "ну вот", "ну короче", "как его"]
+FILLERS_HE = {"אמ", "אממ", "אמממ", "אה", "אהה", "אההה", "המ", "הממ", "ממ", "מממ", "א-א"}
+FILLER_PHRASES_HE = ["כאילו", "בעצם", "יעני", "נו", "אז", "בקיצור", "סתם", "כזה", "אתה יודע", "תכלס", "טוב אז"]
 SC_MARKERS_EN = ["no wait", "sorry", "i mean", "scratch that", "actually", "make that", "or rather",
                  "no no", "correction", "let me rephrase", "wait no"]
 SC_MARKERS_RU = ["ой нет", "нет", "точнее", "вернее", "в смысле", "то есть", "не-не", "стоп", "ой",
                  "нет-нет", "я хотел сказать", "я хотела сказать", "поправка", "не так"]
-HESITATION = FILLERS_EN | FILLERS_RU  # pure sounds, never meaningful
+SC_MARKERS_HE = ["לא רגע", "סליחה", "כלומר", "בעצם", "זאת אומרת", "תמחק את זה", "לא לא", "אופס", "רגע לא", "תיקון"]
+HESITATION = FILLERS_EN | FILLERS_RU | FILLERS_HE  # pure sounds, never meaningful
 
 STOP_EN = set("""a an the and or but if then so of to in on at by for with from up down out over under
 about into onto than as is are was were be been being am do does did done have has had having i you he
@@ -106,15 +147,21 @@ STOP_RU = set("""и а но или да же ли бы б то это этот �
 свой своя своё свое свои наш наша наше наши ваш ваша ваше ваши не ни нет есть был была было были быть
 будет будут уже еще ещё только вот ну тоже также все всё весь вся всего всех очень там тут здесь сейчас
 потом тогда если же ведь вон""".split())
-FUNCTION_WORDS = STOP_EN | STOP_RU
+STOP_HE = set("""של את על אל עם או גם כי אם אז אבל רק כל זה זו זאת אלה אלו אני אתה את הוא היא אנחנו אתם
+הן הם לי לך לו לה לנו לכם להם שלי שלך שלו שלה שלנו יש אין לא כן מה מי איפה מתי למה איך כמה כדי
+כמו בין לפני אחרי תחת מעל מול אצל מתוך דרך עד מאז עוד כבר עכשיו אחר כך שם פה כאן מאוד יותר פחות
+פה היה הייתה היו יהיה תהיה להיות בשביל בגלל למרות""".split())
+FUNCTION_WORDS = STOP_EN | STOP_RU | STOP_HE
 
 NEGATIONS_EN = {"not", "no", "never", "don't", "doesn't", "didn't", "isn't", "aren't", "wasn't", "weren't",
                 "can't", "cannot", "won't", "wouldn't", "shouldn't", "nothing", "nobody", "none", "neither", "nor",
                 "dont", "doesnt", "didnt", "isnt", "arent", "wasnt", "werent", "cant", "wont", "wouldnt", "shouldnt",
                 "couldn't", "couldnt", "haven't", "havent", "hasn't", "hasnt"}
 NEGATIONS_RU = {"не", "нет", "ни", "никогда", "ничего", "никто", "нельзя", "нисколько", "никак", "нигде"}
+NEGATIONS_HE = {"לא", "אין", "אל", "כלום", "בלי", "שום", "ללא", "אף", "איננו", "איננה", "אינם"}
 HEDGES_EN = ["i think", "maybe", "probably", "perhaps", "i guess", "i believe", "might"]
 HEDGES_RU = ["мне кажется", "наверное", "может быть", "возможно", "вроде", "по-моему", "кажется", "думаю"]
+HEDGES_HE = ["נראה לי", "אולי", "כנראה", "אני חושב", "אני חושבת", "יכול להיות"]
 
 
 def content_words(s: str) -> list[str]:
@@ -229,10 +276,81 @@ def _en_value(w: str):
     return None
 
 
+def _he_forms() -> dict[str, tuple[int, str]]:
+    """Hebrew cardinal/ordinal forms -> (value, kind), including ו-conjunction prefixes
+    used in compound numbers ('עשרים וחמש' = 25, 'מאה ושלושים' = 130)."""
+    f: dict[str, tuple[int, str]] = {}
+
+    def add(forms, v, kind, with_vav=True):
+        for x in forms:
+            f[x] = (v, kind)
+            if with_vav and not x.startswith("ו"):
+                f["ו" + x] = (v, kind)
+
+    add(["אפס"], 0, "unit")
+    add(["אחד", "אחת"], 1, "unit")
+    add(["שתיים", "שניים", "שתים", "שנים", "שתי", "שני"], 2, "unit")
+    add(["שלוש", "שלושה", "שלושת"], 3, "unit")
+    add(["ארבע", "ארבעה", "ארבעת"], 4, "unit")
+    add(["חמש", "חמישה", "חמשת"], 5, "unit")
+    add(["שש", "שישה", "ששת"], 6, "unit")
+    add(["שבע", "שבעה", "שבעת"], 7, "unit")
+    add(["שמונה", "שמונת"], 8, "unit")
+    add(["תשע", "תשעה", "תשעת"], 9, "unit")
+    add(["עשר", "עשרה", "עשרת"], 10, "teen")
+    add(["עשרים"], 20, "ten")
+    add(["שלושים"], 30, "ten")
+    add(["ארבעים"], 40, "ten")
+    add(["חמישים"], 50, "ten")
+    add(["שישים"], 60, "ten")
+    add(["שבעים"], 70, "ten")
+    add(["שמונים"], 80, "ten")
+    add(["תשעים"], 90, "ten")
+    add(["מאה"], 100, "hundred")
+    add(["מאתיים"], 200, "hundred")
+    add(["מאות"], 100, "hundred_mul", with_vav=False)
+    add(["אלף"], 1000, "scale")
+    add(["אלפיים"], 2000, "scale")
+    add(["אלפים"], 1000, "scale")
+    add(["מיליון", "מיליונים"], 10 ** 6, "scale")
+    add(["מיליארד", "מיליארדים"], 10 ** 9, "scale")
+    for w, v in [("ראשון", 1), ("ראשונה", 1), ("שנייה", 2), ("שלישי", 3), ("שלישית", 3),
+                 ("רביעי", 4), ("רביעית", 4), ("חמישי", 5), ("חמישית", 5), ("שישי", 6), ("שישית", 6),
+                 ("שביעי", 7), ("שביעית", 7), ("שמיני", 8), ("שמינית", 8), ("תשיעי", 9), ("תשיעית", 9),
+                 ("עשירי", 10), ("עשירית", 10)]:
+        add([w], v, "ord", with_vav=False)
+    return f
+
+
+HE_NUM = _he_forms()
+
+
+def _he_value(tok: str):
+    if tok in HE_NUM:
+        return HE_NUM[tok]
+    # Hebrew preposition prefixes on numbers: בשלוש (at 3), לשבע (to 7), מעשר (from 10), כעשרים (~20)
+    if len(tok) >= 4 and tok[0] in "בלהמכ" and tok[1:] in HE_NUM:
+        v, k = HE_NUM[tok[1:]]
+        if k != "ord":
+            return v, k
+    return None
+
+
 def _num_info(tok: str, lang: str | None):
+    if lang == "he":
+        return _he_value(tok)
+    if lang in ("he_en", "he_ru"):
+        inf = _he_value(tok)
+        if inf is not None:
+            return inf
+        if lang == "he_en":
+            return _en_value(tok)
+        return RU_NUM.get(tok)
     inf = RU_NUM.get(tok) if lang != "en" else None
     if inf is None and lang != "ru":
         inf = _en_value(tok)
+    if inf is None and lang is None:
+        inf = _he_value(tok)
     return inf
 
 
@@ -279,6 +397,11 @@ def number_spans(tokens: list[str], lang: str | None = None) -> list[tuple[int, 
                 if last not in ("unit", "teen") or cur >= 100:
                     break
                 cur, last = cur * 100, "hundred"
+                j += 1
+                continue
+            if tok in ("עשר", "עשרה") and last == "unit" and 1 <= cur % 10 <= 9:
+                cur += 10
+                last = "teen"
                 j += 1
                 continue
             slot = _slot(v)
@@ -432,11 +555,75 @@ def lat2cyr_rough(s: str) -> str:
     return r
 
 
+# Hebrew -> Latin rough consonantal/vowel transliteration (for phonetic_key)
+_HEB2LAT_MULTI = [("ג׳", "dzh"), ("ג'", "dzh"), ("צ׳", "ch"), ("צ'", "ch"), ("ז׳", "j"), ("ז'", "j"),
+                  ("וו", "v"), ("יי", "i")]
+_HEB2LAT = {"א": "a", "ב": "b", "ג": "g", "ד": "d", "ה": "h", "ו": "o", "ז": "z", "ח": "h", "ט": "t",
+            "י": "i", "כ": "k", "ך": "k", "ל": "l", "מ": "m", "ם": "m", "נ": "n", "ן": "n", "ס": "s",
+            "ע": "a", "פ": "p", "ף": "p", "צ": "ts", "ץ": "ts", "ק": "k", "ר": "r", "ש": "s", "ת": "t",
+            "׳": "", "״": ""}
+
+
+def heb2lat(s: str) -> str:
+    w = strip_niqqud(nfc(s))
+    out, i = [], 0
+    while i < len(w):
+        for a, b in _HEB2LAT_MULTI:
+            if w.startswith(a, i):
+                out.append(b)
+                i += len(a)
+                break
+        else:
+            out.append(_HEB2LAT.get(w[i], w[i]))
+            i += 1
+    return "".join(out)
+
+
+# English letters/digraphs -> how a Hebrew ASR/speaker writes what they hear (fallback when no lexicon entry)
+_LAT2HEB_MULTI = [("tion", "שן"), ("sion", "ז'ן"), ("ough", "אף"), ("ight", "ייט"), ("ee", "י"), ("oo", "ו"),
+                  ("ea", "י"), ("ou", "או"), ("ow", "או"), ("ai", "יי"), ("ay", "יי"), ("ey", "י"), ("oa", "ו"),
+                  ("sh", "ש"), ("ch", "צ'"), ("th", "ת"), ("ph", "פ"), ("ck", "ק"), ("qu", "קו"), ("kn", "נ"),
+                  ("wh", "וו"), ("gh", "ג"), ("ng", "נג"), ("ts", "צ"), ("ya", "יא"), ("yu", "יו"), ("yo", "יו"),
+                  ("zh", "ז'"), ("x", "קס"), ("j", "ג'"), ("w", "וו"), ("c", "ק"), ("q", "ק")]
+_LAT2HEB_1 = {"a": "א", "b": "ב", "d": "ד", "e": "א", "f": "פ", "g": "ג", "h": "ה", "i": "י", "k": "ק", "l": "ל",
+              "m": "מ", "n": "נ", "o": "ו", "p": "פ", "r": "ר", "s": "ס", "t": "ט", "u": "ו", "v": "ו", "y": "י",
+              "z": "ז"}
+_HEB_SOFIT = {"כ": "ך", "מ": "ם", "נ": "ן", "פ": "ף", "צ": "ץ"}
+
+
+def lat2heb_rough(s: str) -> str:
+    """Rough phonetic rendering of an English word in Hebrew (noise model fallback)."""
+    w = s.lower()
+    out, i = [], 0
+    while i < len(w):
+        for a, b in _LAT2HEB_MULTI:
+            if w.startswith(a, i):
+                out.append(b)
+                i += len(a)
+                break
+        else:
+            ch = w[i]
+            # drop medial short 'e' except at start; keep 'a' at start or after consonant sparingly
+            if ch == "e" and i > 0 and i == len(w) - 1 and len(w) > 3:
+                i += 1
+                continue
+            if ch == "e" and 0 < i < len(w) - 1:
+                i += 1
+                continue
+            out.append(_LAT2HEB_1.get(ch, ch))
+            i += 1
+    r = "".join(out)
+    if r and r[-1] in _HEB_SOFIT:
+        r = r[:-1] + _HEB_SOFIT[r[-1]]
+    return r
+
+
 def phonetic_key(s: str) -> str:
-    """Script-independent key: 'клик хаус' and 'ClickHouse' end up close.
-    lower -> cyr->lat -> simplifications -> strip separators/vowel runs."""
-    k = strip_diacritics(nfc(s)).lower()
+    """Script-independent key: 'клик хаус', 'קליקהאוס' and 'ClickHouse' end up close.
+    lower -> cyr->lat / heb->lat -> simplifications -> strip separators/vowel runs."""
+    k = strip_diacritics(strip_niqqud(nfc(s))).lower()
     k = cyr2lat(k)
+    k = heb2lat(k)
     for a, b in (("ph", "f"), ("ck", "k"), ("w", "v"), ("th", "t"), ("x", "ks"), ("c", "k"), ("q", "k"),
                  ("ou", "au"), ("ee", "i"), ("oo", "u"), ("y", "i"), ("j", "dzh"), ("ts", "ts"), ("zh", "j")):
         k = k.replace(a, b)
@@ -535,9 +722,13 @@ def nwer(ref: str, hyp: str, lang: str | None = None) -> float:
 
 
 # ------------------------------------------------------------------ misc
-PREAMBLE_RE = re.compile(r"^\s*(sure|certainly|of course|here is|here's|okay,? here|the (edited|corrected|cleaned) text|"
-                         r"конечно|вот (исправленный|ваш|отредактированный|текст)|исправленный текст|"
-                         r"отредактированный текст|готово)\b", re.I)
+PREAMBLE_RE = re.compile(
+    r"^\s*(?:(?:sure|certainly|of course|here is|here's|okay,? here|the (?:edited|corrected|cleaned) text|"
+    r"конечно|вот (?:исправленный|ваш|отредактированный|текст)|исправленный текст|"
+    r"отредактированный текст|готово)\b|"
+    r"בטח[,!:]|הנה הטקסט|טקסט מתוקן[:\s]|תוצאה:|פלט:)",
+    re.I,
+)
 
 
 def has_preamble(s: str) -> bool:

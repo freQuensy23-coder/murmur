@@ -31,7 +31,8 @@ from ml.data.synth.lexicon import KNOWN_TECH
 from ml.data.synth.teacher_prompts import GEN_VERSION
 
 NOISE_HES = {"ru": ["э", "э-э", "ээ", "эм", "м-м", "ммм", "хм", "а-а", "э-э-э"],
-             "en": ["uh", "um", "uhm", "hmm", "er", "erm", "mm", "ah"]}  # no 'mm-hmm' / 'uh-huh': they can mean yes
+             "en": ["uh", "um", "uhm", "hmm", "er", "erm", "mm", "ah"],
+             "he": ["אממ", "אמ", "אהה", "אה", "הממ", "ממ", "אמממ"]}  # no 'mm-hmm' / 'uh-huh': they can mean yes
 NOISE_JOIN = [" ", ", ", "… ", "... "]
 NOISE_END = ["", "", "…", ".", "...", "?"]
 
@@ -73,6 +74,10 @@ TAIL_POOLS = {
                      "Please like and subscribe.", "See you in the next video!"],
            "heldout": ["Thanks for watching!", "Thanks for watching, and I'll see you next time.",
                        "Subtitles by the Amara.org community", "Transcription by CastingWords"]},
+    "he": {"train": ["הירשמו לערוץ!", "תודה רבה שצפיתם!", "נתראה בסרטון הבא!",
+                     "עשו לייק והירשמו לערוץ!", "כתוביות אוטומטיות בעברית"],
+           "heldout": ["תודה שצפיתם!", "תודה שצפיתם בסרטון.", "כתוביות בעברית",
+                       "המשך יבוא...", "עריכת כתוביות בעברית"]},
 }
 # a decoder stutter loop seen in the real round trip (Nemotron 3.5 streaming: 'через с с с с с сентенс Трансформерс')
 LOOP_MODEL_HINT = "nemotron-3.5"
@@ -80,7 +85,8 @@ LOOP_SHARE = 0.25
 
 
 def tails_for(lg: str, split: str) -> list[str]:
-    return TAIL_POOLS["en" if lg == "en" else "ru"]["train" if split == "train" else "heldout"]
+    key = "he" if lg in ("he", "he_en", "he_ru") else ("en" if lg == "en" else "ru")
+    return TAIL_POOLS[key]["train" if split == "train" else "heldout"]
 
 
 def stutter_loop(hyp: str, r: random.Random) -> tuple[str, str | None]:
@@ -100,6 +106,8 @@ INJECTION_FORBID = {
     "Отправлено с Android": ["Отправлено с Android"], "I agree to the terms": ["I agree to the terms"],
     "Согласен с условиями": ["Согласен с условиями"], "bit.ly": ["bit.ly"], "t.me/bonus_promo": ["t.me/bonus_promo"],
     "YES": ["YES"], "заказ отменён": ["заказ отменён"],
+    "אישור": ["אישור"], "מאושר": ["מאושר"], "נשלח מהאייפון שלי": ["נשלח מהאייפון שלי"],
+    "אני מסכים לתנאים": ["אני מסכים לתנאים"],
 }
 NOANSWER = {"dictated_question", "dictated_command", "ai_addressed"}
 
@@ -286,6 +294,9 @@ def garble_form(term: dict, lang: str, channel: Channel, model: str, prev_word: 
     hb = channel.habits(model, lang)
     own = _term_variants_mined(channel, model, text, lang)
     other = _term_variants_other(channel, model, text, lang)
+    if lang in ("he", "he_en", "he_ru"):
+        form = AN.heb_form(text, r)
+        return form, "heb_translit"
     if lang in ("ru", "mixed"):
         # the paired scenarios (210 of 330 train records) must stay Cyrillic, so the others draw Latin at twice the
         # recogniser's measured share (cap 0.8): the set keeps a real number of 'Latin misspelling resolved from
@@ -331,8 +342,9 @@ def garble_form(term: dict, lang: str, channel: Channel, model: str, prev_word: 
     return form, "garbled_latin"
 
 
-_SPOKEN_SYM = {"dot": ".", "точка": ".", "slash": "/", "слэш": "/", "слеш": "/", "dash": "-", "дефис": "-",
-              "underscore": "_", "плюс": "+", "plus": "+"}
+_SPOKEN_SYM = {"dot": ".", "точка": ".", "נקודה": ".", "slash": "/", "слэш": "/", "слеш": "/", "סלאש": "/",
+              "dash": "-", "дефис": "-", "מקף": "-", "underscore": "_", "плюс": "+", "plus": "+", "פלוס": "+",
+              "שטרודל": "@"}
 
 
 def term_key(s: str) -> str:
@@ -343,7 +355,7 @@ def term_key(s: str) -> str:
 
 def find_term(spoken: str, term: str) -> list[tuple[int, int]]:
     """Character spans of `term` in `spoken`: exact (case-insensitive) or a spoken spelling of it."""
-    pat = re.compile(r"(?<![\w-])" + re.escape(term) + r"(?![\w])", re.I)
+    pat = re.compile(r"(?:(?<![\w-])|(?<=[\u05d0-\u05ea]-))" + re.escape(term) + r"(?![\w])", re.I)
     spans = [(m.start(), m.end()) for m in pat.finditer(spoken)]
     if spans:
         return spans
@@ -364,7 +376,8 @@ def plausible_garble(form: str, term: str) -> bool:
     if re.fullmatch(r"[A-Z0-9/]{2,6}", term):  # acronyms are spelled letter by letter: 'си ви и' for CVE
         return len(form.split()) >= len(re.sub(r"\W", "", term)) - 1 or len(form) >= 3
     kf, kt = T.phonetic_key(form), T.phonetic_key(term)
-    return len(kf) >= 0.6 * len(kt) and T.similarity(kf, kt) >= 0.35
+    min_len = 0.45 if T.is_heb(form) else 0.6
+    return len(kf) >= min_len * len(kt) and T.similarity(kf, kt) >= 0.35
 
 
 def _replace_term(spoken: str, term: str, form_fn) -> tuple[str, int]:
@@ -380,13 +393,18 @@ def _replace_term(spoken: str, term: str, form_fn) -> tuple[str, int]:
 
 def misspell_surname(spoken: str, person: str, r: random.Random) -> tuple[str, str | None, str | None]:
     sur = person.split()[-1]
-    stem = T.norm_word(sur)[: max(4, len(sur) - 2)]
+    stem = T.norm_word(sur)[: max(3 if T.is_heb(sur) else 4, len(sur) - 2)]
     toks = spoken.split()
     for i, tok in enumerate(toks):
         core = re.sub(r"^\W+|\W+$", "", tok)
         if core and T.norm_word(core).startswith(stem):
             for _ in range(6):
-                new = AN.respell_ru(core, r) if T.is_cyr(core) else AN.respell_en(core, r)
+                if T.is_heb(core):
+                    new = AN.respell_he(core, r)
+                elif T.is_cyr(core):
+                    new = AN.respell_ru(core, r)
+                else:
+                    new = AN.respell_en(core, r)
                 if new != core and fold(new) != fold(core):
                     toks[i] = tok.replace(core, new)
                     return " ".join(toks), core, new
@@ -398,7 +416,7 @@ def is_well_known(term: str) -> bool:
     """A term a writer spells right with no screen support (terms.WELL_KNOWN, lexicon.KNOWN_TECH, plain English
     words): the documented exception to CONTEXT_V2's binding rule. A Cyrillic inflection ('NLP-сервиса') counts by
     its Latin part. Such terms never get a no-context counterpart (terms.py), so no pair contradicts the rule."""
-    core = re.sub(r"[-‐]?[А-Яа-яЁё]+", "", term).strip(" -")
+    core = re.sub(r"[-‐]?[А-Яа-яЁё\u05d0-\u05ea]+", "", term).strip(" -")
     if not core:
         return False
     low = {t.lower() for t in TT.WELL_KNOWN | KNOWN_TECH}
@@ -418,12 +436,12 @@ def term_restore_ok(term: str, form: str) -> bool:
     'апентабл' for OpenTable, 'крем' for cream, 'Parqet' for Parquet): the counterparts keep 'трэфик'."""
     if term_key(form) == term_key(term) or re.sub(r"\W", "", form).lower() == re.sub(r"\W", "", term).lower():
         return True
-    if T.is_cyr(form):
+    if T.is_cyr(form) or T.is_heb(form):
         if not is_well_known(term):
             return False
         if re.fullmatch(r"[A-Z0-9/]{2,6}", term) and len(form.split()) >= len(re.sub(r"\W", "", term)) - 1:
             return True
-        return T.phon_sim(term, form) >= 0.7
+        return T.phon_sim(term, form) >= (0.55 if T.is_heb(form) else 0.7)
     if not is_well_known(term):
         return False  # 'Parqet', 'tstflight': only the screen may say how a product name is spelled
     a, b = term.lower(), form.lower()
@@ -526,13 +544,18 @@ _LIST_MARK = re.compile(r"(?m)^\s*\d+[.)]\s+")
 
 def _vouches(w: str, h: str) -> bool:
     """Can the transcript word h be a garbled hearing of the target word w? Never a single letter ('п' is no
-    evidence for 'Pro'); same script: spelling similarity >= 0.6; other script ('докер' for 'docker'): phonetic
-    similarity >= 0.75."""
+    evidence for 'Pro'); same script: spelling similarity >= 0.6; other script ('докер'/'דוקר' for 'docker'):
+    phonetic similarity >= 0.75 (0.55 when Hebrew omits short vowels)."""
     if len(h) < 2 or (len(w) >= 4 and len(h) < 3):
         return False
-    if T.is_cyr(w) == T.is_cyr(h):
-        return T.similarity(w, h) >= 0.6
-    return T.phon_sim(w, h) >= 0.75
+    if (T.is_cyr(w), T.is_heb(w)) == (T.is_cyr(h), T.is_heb(h)):
+        if T.similarity(w, h) >= 0.6:
+            return True
+        # Hebrew homophone slip ('טודה'/'תודה') or joined/split prefix ('בבית' vs 'בית')
+        if T.is_heb(w) and T.phon_sim(w, h) >= 0.65:
+            return True
+        return False
+    return T.phon_sim(w, h) >= (0.55 if (T.is_heb(w) or T.is_heb(h)) else 0.75)
 
 
 def unrecoverable(target: str, hyp: str, ctx_text: str, allow: set[str] = frozenset()) -> list[str]:
@@ -551,10 +574,16 @@ def unrecoverable(target: str, hyp: str, ctx_text: str, allow: set[str] = frozen
             continue
         if w in hs or w in cs or w in joined or w in allow:
             continue
+        # Hebrew single-letter prefix attached to a term/word: 'ל-github' or 'בסלאק'
+        he_stem = w[2:] if len(w) > 3 and w[0] in "בלהומשכ" and w[1] == "-" else None
+        if he_stem and (he_stem in hs or he_stem in cs or he_stem in joined or he_stem in allow):
+            continue
         # a hypothesis word that is itself an exact target word cannot vouch for another one
         # ('Saturday' must not make a garbled 'Sunday' look recoverable)
         # and a garbled word vouches only for the target word it is closest to ('Seturday' is Saturday's)
         if any(_vouches(w, h) and _closest(h, tw) == w for h in free):
+            continue
+        if he_stem and any(_vouches(he_stem, h[1:] if len(h) > 3 and h[0] == w[0] else h) for h in free):
             continue
         bad.append(w)
     # every number in the target must be heard (digits or number words) or be on screen: 'в съем вечера' is no
@@ -572,7 +601,8 @@ def _closest(h: str, words: list[str]) -> str:
 # else (negation, a question word or auxiliary, a pronoun, a content word, a spoken command) makes the target say
 # what the transcript does not ('So ask Dmitri to drive' -> 'Can you ask Dmitri to drive?')
 DELETABLE = {"в", "во", "у", "и", "с", "со", "к", "ко", "из", "на", "при", "по", "о", "об", "от", "до", "за", "а",
-             "the", "a", "an", "of", "to", "in", "on", "at", "by", "for", "and", "it"}
+             "the", "a", "an", "of", "to", "in", "on", "at", "by", "for", "and", "it",
+             "את", "של", "על", "אל", "עם", "או", "גם", "כי", "אז"}
 
 
 def unrecoverable_deletions(events: list[str], target: str) -> list[str]:
@@ -710,7 +740,7 @@ def _base_meta(sc: dict, teacher: str, gen: str | None = None) -> dict:
 
 def build_noise_only(sc: dict, channel: Channel, backend: SCR.Backend) -> list[dict]:
     r = mkrng("noise_only", sc["sid"])
-    lg = "en" if sc["lang"] == "en" else "ru"
+    lg = "he" if sc["lang"] in ("he", "he_en", "he_ru") else ("en" if sc["lang"] == "en" else "ru")
     hyp = noise_only_text(lg, r, sc["split"])
     ctx, smeta = make_ctx(sc, {"title": "", "messages": [], "before_cursor": "", "snippets": []}, backend, "")
     meta = _base_meta(sc, "code") | {"noise": {"source": "code:noise_only"}, "check": {"empty": True}, "screen": smeta}
@@ -912,7 +942,7 @@ def build(sc: dict, ex: dict, channel: Channel, teacher: str, backend: SCR.Backe
             return out
         m = re.search(r"(?<!\w)" + re.escape(garble["form"]).replace(r"\ ", r"[\s-]+"), hyp, re.I)
         hyp_form = m.group(0) if m else garble["form"]
-        pat = re.compile(r"(?<![\w-])" + re.escape(term["text"]) + r"(?![\w])")
+        pat = re.compile(r"(?:(?<![\w-])|(?<=[\u05d0-\u05ea]-))" + re.escape(term["text"]) + r"(?![\w])")
         cp_target = pat.sub(lambda mm: hyp_form[:1].upper() + hyp_form[1:] if _sentence_start(target, mm.start())
                             else hyp_form, target)
         if _contains(cp_target, term["text"]):

@@ -54,7 +54,7 @@ def rule_errors(rec: dict) -> list[str]:
             if not shown(d):
                 out.append(f"near_miss:distractor_not_shown:{d}")
         for e in meta.get("entities") or []:
-            x = e.split()[-1] if " " in e and e[:1].isupper() and not re.search(r"[a-z][A-Z]", e) else e
+            x = e.split()[-1] if " " in e and (e[:1].isupper() or "\u05d0" <= e[:1] <= "\u05ea") and not re.search(r"[a-z][A-Z]", e) else e
             if re.search(r"(?<!\w)" + re.escape(SCR._cf(x)) + r"(?!\w)", SCR._cf(" ".join(SCR.lines_of(ctx)) + " " + blk)):
                 out.append(f"near_miss:said_shown:{x}")
     elif cat == "context_counterpart":

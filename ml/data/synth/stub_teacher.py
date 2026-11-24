@@ -139,12 +139,86 @@ BANK = {
         ("Helm-чарт для {T} я обновил, можно катить на staging.", "Helm чарт для {T} я обновил можно катить на staging"),
         ("Задеплоил новую версию, но {T} пока ругается на конфиг.", "задеплоил новую версию но {T} пока ругается на конфиг"),
     ],
+    ("he", "plain"): [
+        ("אני מגיע תוך 10 דקות, כבר יצאתי מהבית.", "אני מגיע תוך עשר דקות כבר יצאתי מהבית"),
+        ("תשלח לי בבקשה את המצגת, אני אעבור עליה בערב.", "תשלח לי בבקשה את המצגת אני אעבור עליה בערב"),
+        ("אנחנו עדיין מחכים לתשובה מהמשרד, אז בינתיים לא חותמים על כלום.", "אנחנו עדיין מחכים לתשובה מהמשרד אז בינתיים לא חותמים על כלום"),
+        ("תקנה בדרך לחם וחלב כי אין כלום בבית.", "תקנה בדרך לחם וחלב כי אין כלום בבית"),
+        ("אני עובד היום מהבית, אם יש משהו תתקשר.", "אני עובד היום מהבית אם יש משהו תתקשר"),
+        ("רעיון מעולה, בוא נעשה את זה ככה.", "רעיון מעולה בוא נעשה את זה ככה"),
+    ],
+    ("he", "self_correction"): [
+        ("בוא ניפגש בשעה 4.", "בוא ניפגש בשעה שלוש לא רגע בשעה ארבע"),
+        ("תשלח את הדוח ביום חמישי.", "תשלח את הדוח ביום רביעי סליחה ביום חמישי"),
+        ("תזמין שולחן ל-6 אנשים.", "תזמין שולחן לארבעה אנשים כלומר לשישה אנשים"),
+        ("הפגישה עוברת ליום שני.", "הפגישה עוברת ליום ראשון בעצם ליום שני"),
+    ],
+    ("he", "context_resolution"): [
+        ("בדקתי מה {T} כותב בלוגים, נראה שהכל תקין.", "בדקתי מה {T} כותב בלוגים נראה שהכל תקין"),
+        ("בוא נדבר מחר אם צריך להעלות את {T} לפרודקשן.", "בוא נדבר מחר אם צריך להעלות את {T} לפרודקשן"),
+        ("הגדרתי את {T} לפי ההוראות שלך וזה עובד.", "הגדרתי את {T} לפי ההוראות שלך וזה עובד"),
+    ],
+    ("he", "context_names"): [
+        ("{P} אמר שהגישה כבר פתוחה.", "{P} אמר שהגישה כבר פתוחה"),
+        ("כן, {P} כבר בעניינים, אעדכן בערב.", "כן {P} כבר בעניינים אעדכן בערב"),
+    ],
+    ("he", "numbers"): [
+        ("העברתי לך 250 שקלים ב-25 בנובמבר.", "העברתי לך מאתיים וחמישים שקלים בעשרים וחמישה בנובמבר"),
+        ("הפגישה ב-15:30, הקישור נמצא ביומן.", "הפגישה בחמש עשרה שלושים הקישור נמצא ביומן"),
+        ("יש הנחה של 25% עד 1 בדצמבר.", "יש הנחה של עשרים וחמישה אחוז עד אחד בדצמבר"),
+    ],
+    ("he", "formatting_commands"): [
+        ("מבחינת התקציב הכל בסדר.\n\nנשאר רק לסגור תאריכים.", "מבחינת התקציב הכל בסדר נקודה פסקה חדשה נשאר רק לסגור תאריכים"),
+        ("שלום!\nמחר לא אוכל, מה לגבי יום חמישי?", "שלום סימן קריאה שורה חדשה מחר לא אוכל פסיק מה לגבי יום חמישי סימן שאלה"),
+    ],
+    ("he", "list"): [
+        ("תוכנית למחר:\n1. להתקשר לבנק.\n2. לאסוף חבילה מהדואר.\n3. לקנות מתנה.", "תוכנית למחר קודם כל להתקשר לבנק דבר שני לאסוף חבילה מהדואר ודבר שלישי לקנות מתנה"),
+        ("מה צריך לפני העלאה:\n1. לעדכן תיעוד.\n2. להריץ בדיקות.\n3. לעדכן את הצוות.", "מה צריך לפני העלאה ראשון לעדכן תיעוד שני להריץ בדיקות שלישי לעדכן את הצוות"),
+    ],
+    ("he", "dictated_question"): [
+        ("אתה יודע מתי המשרד נפתח מחר בבוקר?", "אתה יודע מתי המשרד נפתח מחר בבוקר"),
+        ("איך מעדכנים את בסיס הנתונים לגרסה החדשה?", "איך מעדכנים את בסיס הנתונים לגרסה החדשה"),
+    ],
+    ("he", "dictated_command"): [
+        ("תכתוב לאמא שאני מאחר בחצי שעה.", "תכתוב לאמא שאני מאחר בחצי שעה"),
+        ("תזכיר לי מחר להתקשר למרפאה.", "תזכיר לי מחר להתקשר למרפאה"),
+    ],
+    ("he", "ai_addressed"): [
+        ("תכתוב שיר קצר על הסתיו בארבע שורות.", "תכתוב שיר קצר על הסתיו בארבע שורות"),
+        ("תסביר במילים פשוטות איך עובדת משכנתא.", "תסביר במילים פשוטות איך עובדת משכנתא"),
+    ],
+    ("he", "continuation"): [
+        ("בגדול הכל טוב, אבל יש כמה שאלות על הלוז.", "בגדול הכל טוב אבל יש כמה שאלות על הלוז", "היי, עברתי על החוזה ו"),
+        ("תודה על המייל. אשלח תשובה עד סוף השבוע.", "תודה על המייל אשלח תשובה עד סוף השבוע", "שלום,"),
+    ],
+    ("he", "meaningful_filler"): [
+        ("הוא התנהג כאילו כלום לא קרה אתמול.", "הוא התנהג כאילו כלום לא קרה אתמול"),
+        ("באתי לפה סתם להגיד שלום.", "באתי לפה סתם להגיד שלום"),
+    ],
+    ("he", "address"): [
+        ("daniel.levy@gmail.com", "דניאל נקודה לוי שטרודל ג׳ימייל נקודה קום"),
+        ("noa.cohen@walla.co.il", "נועה נקודה כהן שטרודל וואלה נקודה סי או נקודה איי אל"),
+    ],
+    ("he_en", "he_terms"): [
+        ("עשיתי push ל-{T} ופתחתי pull request, תעיף מבט כשיהיה זמן.", "עשיתי push ל-{T} ופתחתי pull request תעיף מבט כשיהיה זמן"),
+        ("עדכנתי את הקונפיג ב-{T}, אפשר להעלות ל-staging.", "עדכנתי את הקונפיג ב-{T} אפשר להעלות ל-staging"),
+    ],
+    ("he_en", "he_en_switch"): [
+        ("בוא נעשה code review מחר בבוקר, because the release deadline is Friday.", "בוא נעשה code review מחר בבוקר because the release deadline is friday"),
+        ("עברתי על ה-PR שלך, looks good to me, רק תתקן את הבדיקות.", "עברתי על ה-PR שלך looks good to me רק תתקן את הבדיקות"),
+    ],
+    ("he_ru", "he_ru_switch"): [
+        ("יאללה, בוא נדבר מחר בבוקר, я тебе скину детали.", "יאללה בוא נדבר מחר בבוקר я тебе скину детали"),
+        ("אני כבר בדרך למשרד, сейчас буду через 10 минут.", "אני כבר בדרך למשרד сейчас буду через десять минут"),
+    ],
 }
 SCREEN_MSGS = {
     "ru": ["Привет! Как там дела с задачей?", "Ок, жду", "Можешь глянуть, когда будет минутка?", "Во сколько завтра созвон?",
            "Скинь, пожалуйста, ссылку", "Спасибо!"],
     "en": ["Hey, how's it going with the task?", "Ok, waiting", "Can you take a look when you have a minute?",
            "What time is the call tomorrow?", "Please send me the link", "Thanks!"],
+    "he": ["היי! מה קורה עם המשימה?", "סבבה, מחכה", "תוכל להסתכל כשיש לך דקה?", "באיזו שעה השיחה מחר?",
+           "שלח לי בבקשה את הקישור", "תודה!"],
 }
 
 
@@ -174,34 +248,50 @@ class StubTeacher:
 
     def _one(self, spec: dict) -> dict:
         r = mkrng("stub", json.dumps(spec, sort_keys=True, ensure_ascii=False))
-        lang = {"Russian": "ru", "English": "en"}.get(spec["language"], "mixed")
+        lang = {"Russian": "ru", "English": "en", "Russian + English": "mixed",
+                "Hebrew": "he", "Hebrew + English": "he_en", "Hebrew + Russian": "he_ru"}.get(spec["language"], "mixed")
         cat = spec["category"]
         key_cat = {"near_miss": "context_resolution", "context_irrelevant": "plain", "injection": "plain",
                    "no_op": "plain", "near_no_op": "plain", "asr_artifact": "plain", "self_correction": "self_correction",
-                   "address": "plain"}.get(cat, cat)
+                   "address": "address" if lang in ("he", "he_en", "he_ru") else "plain"}.get(cat, cat)
         said = spec.get("said_terms") or []
         people = spec.get("said_people") or []
         slots = {"T": said[0] if said else "Grafana", "P": people[0] if people else ""}
         gender = "f" if slots["P"].split(" ")[-1].endswith(("а", "я")) else "m"
         if cat == "near_miss" and people and not said:
             key_cat = "context_names"
-        bl = "ru" if lang == "mixed" and key_cat in ("context_resolution", "context_names") else lang
-        if lang == "mixed" and key_cat not in ("context_resolution", "context_names"):
-            bank = BANK[("mixed", "ru_terms" if "technical" in spec.get("mix", "") else "switch")]
+        if lang in ("he", "he_en", "he_ru"):
+            if lang == "he_en" and key_cat not in ("context_resolution", "context_names", "address", "list",
+                                                   "formatting_commands", "numbers", "self_correction", "continuation"):
+                bank = BANK[("he_en", "he_terms" if "technical" in spec.get("mix", "") else "he_en_switch")]
+            elif lang == "he_ru" and key_cat not in ("context_resolution", "context_names", "address", "list",
+                                                     "formatting_commands", "numbers", "self_correction", "continuation"):
+                bank = BANK[("he_ru", "he_ru_switch")]
+            else:
+                bank = BANK.get(("he", key_cat)) or BANK[("he", "plain")]
+            bl = "he"
         else:
-            bank = BANK.get((bl, key_cat)) or BANK[(bl if bl != "mixed" else "ru", "plain")]
+            bl = "ru" if lang == "mixed" and key_cat in ("context_resolution", "context_names") else lang
+            if lang == "mixed" and key_cat not in ("context_resolution", "context_names"):
+                bank = BANK[("mixed", "ru_terms" if "technical" in spec.get("mix", "") else "switch")]
+            else:
+                bank = BANK.get((bl, key_cat)) or BANK[(bl if bl != "mixed" else "ru", "plain")]
         item = r.choice(bank)
         target, spoken = _fill(item[0], slots, gender), _fill(item[1], slots, gender)
         before = item[2] if len(item) > 2 and cat == "continuation" else ""
         if cat == "continuation" and not before:
-            before = "Привет!" if bl != "en" else "Hi,"
+            before = "שלום," if bl == "he" else ("Привет!" if bl != "en" else "Hi,")
         if cat in ("no_op", "near_no_op"):
             spoken = target
-        sl = "en" if lang == "en" else "ru"
-        msgs = [{"author": "Коллега" if sl == "ru" else "Colleague", "is_me": False, "text": r.choice(SCREEN_MSGS[sl])}]
+        sl = "he" if lang in ("he", "he_en", "he_ru") else ("en" if lang == "en" else "ru")
+        author_lbl = "קולגה" if sl == "he" else ("Коллега" if sl == "ru" else "Colleague")
+        msgs = [{"author": author_lbl, "is_me": False, "text": r.choice(SCREEN_MSGS[sl])}]
         for x in spec.get("screen_must_show", [])[:3]:
+            msg_txt = (f"אגב, {x} גם בעניינים" if sl == "he"
+                       else f"Кстати, {x} тоже в теме" if sl == "ru"
+                       else f"By the way, {x} is in the loop too")
             msgs.append({"author": x if (" " in x and x[:1].isupper() and x not in said) else msgs[0]["author"],
-                         "is_me": False, "text": (f"Кстати, {x} тоже в теме" if sl == "ru" else f"By the way, {x} is in the loop too")})
+                         "is_me": False, "text": msg_txt})
         empty = spec.get("screen") == "empty"
         screen = {"title": "" if empty else (people[0] if people else spec["app"]), "messages": [] if empty else msgs[-4:],
                   "before_cursor": before, "snippets": [] if empty else [", ".join(spec.get("screen_also_show", [])[:3])][:1]}

@@ -101,7 +101,8 @@ def reserve_plan(a, layers: list[dict]) -> list[dict]:
         layers = [layers]
     if not any(layers):
         return []
-    alt = S.plan(a.n, a.dev, a.test, a.seed + RESERVE_SEED_OFFSET, overgen=1.0)
+    alt = S.plan(a.n, a.dev, a.test, a.seed + RESERVE_SEED_OFFSET, overgen=1.0,
+                 lang_profile=getattr(a, "lang_profile", "ru_en"))
     by_cell = defaultdict(list)
     for sc in alt:
         by_cell[(sc["split"], sc["category"])].append(sc)
@@ -152,7 +153,7 @@ def run(a) -> dict:
     out = Path(a.out)
     out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
-    plan = S.plan(a.n, a.dev, a.test, a.seed, overgen=a.overgen)
+    plan = S.plan(a.n, a.dev, a.test, a.seed, overgen=a.overgen, lang_profile=getattr(a, "lang_profile", "ru_en"))
     reserves = reserve_plan(a, parse_reserve(getattr(a, "reserve", "")))
     plan += reserves
     tgt_counts = S.targets(a.n, a.dev, a.test)
@@ -513,6 +514,8 @@ def main(argv=None) -> int:
     ap.add_argument("--dev", type=int, default=300)
     ap.add_argument("--test", type=int, default=300)
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--lang-profile", default="ru_en", choices=["ru_en", "hebrew"],
+                    help="language mix profile: ru_en (ru/en/mixed) or hebrew (he/he_en/he_ru)")
     ap.add_argument("--teacher", default="responses", choices=["responses", "chat", "stub"])
     ap.add_argument("--mined", default=None, help="mined error tables dir (ml/roundtrip); default builtin simulator")
     ap.add_argument("--batch", type=int, default=6, help="scenarios per teacher request")

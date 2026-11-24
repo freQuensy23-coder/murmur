@@ -35,6 +35,8 @@ HINTS = {
            "search": "Поиск", "address": "Адрес", "code": "", "generic": ""},
     "en": {"message": "Message", "email_body": "Compose email", "email_subject": "Subject", "note": "Note",
            "search": "Search", "address": "Address", "code": "", "generic": ""},
+    "he": {"message": "הודעה", "email_body": "כתיבת אימייל", "email_subject": "נושא", "note": "הערה",
+           "search": "חיפוש", "address": "כתובת", "code": "", "generic": ""},
 }
 
 
@@ -68,10 +70,15 @@ def from_teacher(screen: dict, app: dict, field_kind: str | None = "message", la
     """Render spec for a teacher screen. field_kind None = the app exposes no focused field."""
     r = random.Random(f"spec|{seed}")
     tpl = template or choose_template(app, field_kind, r)
-    loc = locale or ("ru" if lang in ("ru", "mixed") else ("ru" if r.random() < 0.35 else "en"))
+    if locale:
+        loc = locale
+    elif lang in ("he", "he_en", "he_ru"):
+        loc = "he" if r.random() < 0.8 else "en"
+    else:
+        loc = "ru" if lang in ("ru", "mixed") else ("ru" if r.random() < 0.35 else "en")
     field = None
     if field_kind is not None:
-        field = {"kind": field_kind, "hint": HINTS[loc].get(field_kind, ""), "before_cursor": screen.get("before_cursor") or ""}
+        field = {"kind": field_kind, "hint": HINTS.get(loc, HINTS["en"]).get(field_kind, ""), "before_cursor": screen.get("before_cursor") or ""}
     return {
         "template": tpl,
         "device": device or ("fold7_cover" if r.random() < 0.6 else "fold7_inner"),

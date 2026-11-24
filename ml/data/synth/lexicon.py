@@ -118,15 +118,75 @@ def _people_ru() -> list[Entity]:
     return out
 
 
+HE_FIRST = (
+    "נועה דניאל תמר איתי מאיה עומר שירה יונתן רוני יעל אריאל מיכל אדם טל אלון גל אורי "
+    "ליאור עידו הילה יואב עמית רותם נדב לירון מורן ענבל גיא ניר ליהי רועי דור נטע עדי "
+    "אופיר מעיין שי שני עידן יובל ברק נמרוד קרן איילת דנה אבי משה יוסי רחל שרה"
+).split()
+HE_SURNAMES = (
+    "כהן לוי מזרחי פרץ ביטון דהן אברהמי פרידמן מלכה אזולאי כץ יוסף דוד עמר אוחיון חדד "
+    "גבאי בן-דוד אדרי לוין טל קליין חן שפירא חזן משה גולן ברק רוזן אבוטבול וקנין אלבז "
+    "סויסה אליהו בר אילן סגל ממן שטרן גרינברג גולדשטיין וייס שוורץ ברגר הלפרין רבינוביץ "
+    "אלמוג ארז פלד צור דרור הראל ינאי כרמל נאור סלע עוז שחר תמיר בראון רוזנברג"
+).split()
+
+# Hebrew phonetic transliterations of Latin tech/product terms (as produced by Hebrew ASR like zipformer2-he)
+TECH_HE = {
+    "ClickHouse": ["קליקהאוס", "קליק האוס"], "Kubernetes": ["קוברנטיס", "קוברנטס"], "GitHub": ["גיטהאב", "גיט האב"],
+    "GitLab": ["גיטלאב", "גיט לאב"], "Slack": ["סלאק", "סלק"], "Jira": ["ג'ירה", "גירה"], "Confluence": ["קונפלואנס"],
+    "Grafana": ["גרפנה", "גרפאנה"], "Prometheus": ["פרומתאוס", "פרומתיאוס"], "PostgreSQL": ["פוסטגרס", "פוסטגרסקיואל"],
+    "Postgres": ["פוסטגרס"], "Redis": ["רדיס"], "Kafka": ["קפקא", "קפקה"], "Docker": ["דוקר"], "Helm": ["הלם"],
+    "Terraform": ["טראפורם", "טרפורם"], "Ansible": ["אנסיבל"], "Airflow": ["איירפלו", "אירפלו"], "Figma": ["פיגמה"],
+    "Notion": ["נושן", "נואושן"], "Telegram": ["טלגרם", "טלגראם"], "WhatsApp": ["וואטסאפ", "ווטסאפ"], "Zoom": ["זום"],
+    "Google Meet": ["גוגל מיט"], "Python": ["פייתון", "פיתון"], "TypeScript": ["טייפסקריפט"], "JavaScript": ["ג'אווהסקריפט"],
+    "React": ["ריאקט"], "Kotlin": ["קוטלין"], "Android": ["אנדרואיד"], "iOS": ["איי או אס"], "Linux": ["לינוקס"],
+    "macOS": ["מק או אס"], "Windows": ["ווינדוס", "וינדוס"], "AWS": ["איי דאבל יו אס", "איי דבליו אס"],
+    "Elasticsearch": ["אלסטיקסרץ'", "אלסטיק"], "MongoDB": ["מונגו", "מונגודיבי"], "MySQL": ["מאי אסקיואל"],
+    "Nginx": ["אנג'ינקס", "נגינקס"], "Jenkins": ["ג'נקינס", "גנקינס"], "Sentry": ["סנטרי"], "Datadog": ["דאטאדוג", "דטאדוג"],
+    "Kibana": ["קיבנה", "קיבאנה"], "Loki": ["לוקי"], "Argo CD": ["ארגו סידי"], "Istio": ["איסטיו"], "Envoy": ["אנווי"],
+    "gRPC": ["ג'י אר פי סי"], "GraphQL": ["גראפקיואל"], "REST API": ["רסט איי פי איי"], "OAuth": ["או אות'"],
+    "PyTorch": ["פייטורץ'", "פייטורצ'"], "TensorFlow": ["טנסורפלו"], "Hugging Face": ["האגינג פייס"],
+    "ChatGPT": ["צ'אט ג'יפיטי", "צאט גיפיטי"], "Claude": ["קלוד"], "Copilot": ["קופיילוט"], "VS Code": ["וי אס קוד"],
+    "IntelliJ": ["אינטליג'יי"], "Xcode": ["אקס קוד"], "Swift": ["סוויפט"], "Rust": ["ראסט"], "Golang": ["גולאנג"],
+    "Java": ["ג'אווה", "גאווה"], "Django": ["ג'אנגו"], "FastAPI": ["פאסט איי פי איי"], "RabbitMQ": ["רביט אם קיו"],
+    "Vault": ["וולט"], "Karpenter": ["קרפנטר"], "Bitbucket": ["ביטבאקט"], "Trello": ["טרלו"], "Miro": ["מירו"],
+    "Excel": ["אקסל"], "Google Docs": ["גוגל דוקס"], "Google Sheets": ["גוגל שיטס"], "Dropbox": ["דרופבוקס"],
+    "Snowflake": ["סנופלייק"], "BigQuery": ["ביגקוורי"], "Spark": ["ספארק"], "Flink": ["פלינק"],
+    "Stripe": ["סטרייפ"], "PayPal": ["פייפאל"], "Netflix": ["נטפליקס"], "Spotify": ["ספוטיפיי"], "YouTube": ["יוטיוב"],
+    "Instagram": ["אינסטגרם"], "LinkedIn": ["לינקדאין"], "Discord": ["דיסקורד"], "OpenAI": ["אופן איי איי"],
+    "NVIDIA": ["אנבידיה", "אנווידיה"], "Samsung": ["סמסונג"], "MacBook": ["מקבוק"], "iPhone": ["אייפון"],
+    "vLLM": ["וי אל אל אם"], "llama.cpp": ["לאמה סי פי פי"], "GGUF": ["ג'י ג'י יו אף"], "ONNX": ["אוניקס"],
+    "Cloudflare": ["קלאודפלייר"], "Vercel": ["ורסל"], "Supabase": ["סופאבייס"], "Linear": ["ליניאר"],
+    "Obsidian": ["אובסידיאן"], "Traefik": ["טרפיק"], "Parquet": ["פרקט"], "Qdrant": ["קודרנט"],
+}
+
+PLACES_HE = [
+    "תל אביב", "ירושלים", "חיפה", "באר שבע", "הרצליה", "רמת גן", "פתח תקווה", "נתניה",
+    "אשדוד", "רחובות", "כפר סבא", "רעננה", "מודיעין", "גבעתיים", "חולון", "אילת",
+]
+
+
+def _people_he() -> list[Entity]:
+    out = []
+    for i, s in enumerate(HE_SURNAMES):
+        f1 = HE_FIRST[(i * 3) % len(HE_FIRST)]
+        f2 = HE_FIRST[(i * 3 + 17) % len(HE_FIRST)]
+        out.append(Entity(f"{f1} {s}", "person_he", "he"))
+        if f2 != f1:
+            out.append(Entity(f"{f2} {s}", "person_he", "he"))
+    return out
+
+
 def _people_en() -> list[Entity]:
     return [Entity(f"{EN_FIRST[(i * 5) % len(EN_FIRST)]} {s}", "person_en", "en") for i, s in enumerate(EN_SURNAMES)]
 
 
 ALL: list[Entity] = (
-    _people_ru() + _people_en()
+    _people_ru() + _people_en() + _people_he()
     + [Entity(k, "tech", "en", tuple(v), known=k in KNOWN_TECH) for k, v in TECH.items()]
     + [Entity(c, "company", "ru" if any("а" <= ch <= "я" for ch in c.lower()) else "en") for c in COMPANIES]
     + [Entity(p, "place_ru", "ru") for p in PLACES_RU] + [Entity(p, "place_en", "en") for p in PLACES_EN]
+    + [Entity(p, "place_he", "he") for p in PLACES_HE]
     + [Entity(c, "code_id", "en") for c in CODE_IDS]
 )
 BY_TEXT = {e.text: e for e in ALL}
@@ -146,7 +206,7 @@ def near_miss(e: Entity, rng: random.Random, split: str, k: int = 2) -> list[Ent
     """Near-miss distractors from the same split: same first name/other surname,
     similar-looking product, same kind."""
     cands: list[Entity] = []
-    if e.kind in ("person_ru", "person_en"):
+    if e.kind in ("person_ru", "person_en", "person_he"):
         fn = first_name(e)
         same_first = [x for x in pool(e.kind, split) if x is not e and first_name(x) == fn]
         sur = e.text.split()[-1]

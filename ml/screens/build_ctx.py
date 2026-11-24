@@ -120,7 +120,7 @@ def build_ctx_detailed(spec: dict, renderer: Renderer | None = None, ocr_cfg=OCR
         ctx["field"] = field
     if screen:
         ctx["screen"] = {"size": screen["size"], "lines": screen["lines"]}
-    ctx["language"] = {"asr": "en" if lang == "en" else "ru"}
+    ctx["language"] = {"asr": "he" if lang in ("he", "he_en", "he_ru") else ("en" if lang == "en" else "ru")}
     ctx["privacy"] = {"level": privacy, "reason": reason}
     meta = {"template": spec["template"], "device": spec["device"], "theme": spec["theme"], "font_scale": spec["font_scale"],
             "locale": spec["locale"], "keyboard": bool(spec.get("keyboard")) and spec.get("field") is not None,
