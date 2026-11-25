@@ -55,7 +55,7 @@ class DefaultModelResolverTest {
     private val pCpu = ArtifactId("parakeet-tdt-0.6b-v3@onnx-int8")
     private val vad = ArtifactId("silero-vad-v5@onnx")
     private val det = ArtifactId("pp-ocrv6-tiny-det@onnx")
-    private val rec = ArtifactId("pp-ocrv5-cyrillic-mobile-rec@onnx")
+    private val rec = ArtifactId("pp-ocrv5-ru-en-he-mobile-rec@onnx")
     private val lfm = ArtifactId("lfm3-1.7b@q4_0-qad")
     private val qwen = ArtifactId("qwen3.5-0.8b@q4_0")
 
@@ -292,11 +292,33 @@ class DefaultModelResolverTest {
     fun languageProfilePicksTheDefaultAsr() = runBlocking {
         assertEquals("ru", DefaultModelResolver.languageProfile(listOf("ru")))
         assertEquals("en", DefaultModelResolver.languageProfile(listOf("en")))
+        assertEquals("he", DefaultModelResolver.languageProfile(listOf("he")))
+        assertEquals("he", DefaultModelResolver.languageProfile(listOf("iw")))
         assertEquals("ru+en", DefaultModelResolver.languageProfile(listOf("ru", "en")))
+        assertEquals("ru+en", DefaultModelResolver.languageProfile(listOf("ru", "en", "he")))
+        assertEquals("ru", DefaultModelResolver.languageProfile(listOf("ru", "he")))
+        assertEquals("en", DefaultModelResolver.languageProfile(listOf("en", "he")))
         assertEquals("ru+en", DefaultModelResolver.languageProfile(listOf("de")))
         val giga = ArtifactId("gigaam-v3-e2e-rnnt@onnx-int8")
         val m = ok(resolver(Installed(listOf(giga, vad))).resolve(Settings(languages = listOf("ru"))))
         assertEquals(giga, m.asr.artifactId)
+    }
+
+    @Test
+    fun hebrewAsrResolvesWithModelTypeOptionWhenHebrewIsEnabled() = runBlocking {
+        val heArt = ArtifactId("zipformer2-66m-streaming-he@onnx-int8")
+        // Disabled: hebrewAsr stays null even when installed.
+        val off = ok(resolver(Installed(everything + heArt)).resolve(Settings(languages = listOf("ru", "en"))))
+        assertNull(off.hebrewAsr)
+        // Enabled: resolves default Hebrew ASR and forwards model_type=zipformer2.
+        val on = ok(resolver(Installed(everything + heArt)).resolve(Settings(languages = listOf("ru", "en", "he"))))
+        assertEquals(heArt, on.hebrewAsr!!.artifactId)
+        assertEquals(CPU, on.hebrewAsr!!.unit)
+        assertEquals("zipformer2", on.hebrewAsr!!.options["model_type"])
+        assertTrue(on.hebrewAsrTraits!!.streaming)
+        // Legacy "iw" code normalizes to "he".
+        val legacy = ok(resolver(Installed(everything + heArt)).resolve(Settings(languages = listOf("ru", "en", "iw"))))
+        assertEquals(heArt, legacy.hebrewAsr!!.artifactId)
     }
 
     @Test

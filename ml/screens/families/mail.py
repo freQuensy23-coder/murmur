@@ -29,9 +29,9 @@ def _rows(c: Ctx) -> list[dict]:
         rows.append({"from": m.get("author") or c.ui["you"], "subject": subj, "text": m["text"], "content": True,
                      "unread": c.r.random() < 0.5})
     n = c.r.randint(5, 9)
-    senders = c.fill.pick(F.SENDERS_RU + F.NAMES_RU, F.SENDERS_EN + F.NAMES_EN, n)
-    subjects = c.fill.pick(F.SUBJ_RU, F.SUBJ_EN, n)
-    snips = c.fill.pick(F.SNIP_RU, F.SNIP_EN, n)
+    senders = c.fill.pick(F.SENDERS_RU + F.NAMES_RU, F.SENDERS_EN + F.NAMES_EN, n, pool_he=F.SENDERS_HE + F.NAMES_HE)
+    subjects = c.fill.pick(F.SUBJ_RU, F.SUBJ_EN, n, pool_he=F.SUBJ_HE)
+    snips = c.fill.pick(F.SNIP_RU, F.SNIP_EN, n, pool_he=F.SNIP_HE)
     for i in range(min(len(senders), len(subjects), len(snips))):
         rows.append({"from": senders[i], "subject": subjects[i], "text": snips[i] + "…", "content": False,
                      "unread": c.r.random() < 0.3})
@@ -59,7 +59,7 @@ def _inbox_list(c: Ctx) -> str:
 
 
 def _search_pill(c: Ctx, focused: bool) -> str:
-    hint = c.field.get("hint") or ("Искать в почте" if c.locale == "ru" else "Search in mail")
+    hint = c.field.get("hint") or ("Искать в почте" if c.locale == "ru" else "חיפוש בדואר" if c.locale == "he" else "Search in mail")
     if focused:
         inner = C.input_field({**c.field, "hint": hint}, hint, c.r, ("back",), ("mic",), "inputbox")
         return f'<div style="padding:8px 12px">{inner}</div>'
@@ -79,7 +79,8 @@ def _inbox(c: Ctx, focused: bool) -> str:
 
 def _message_card(c: Ctx, m: dict, expanded: bool, t: str) -> str:
     name = m.get("author") or c.ui["you"]
-    to = ("мне" if c.locale == "ru" else "to me") if not m.get("is_me") else (("кому: " if c.locale == "ru" else "to ") + c.fill.names(1)[0])
+    to = (("мне" if c.locale == "ru" else "אליי" if c.locale == "he" else "to me") if not m.get("is_me")
+          else (("кому: " if c.locale == "ru" else "אל: " if c.locale == "he" else "to ") + c.fill.names(1)[0]))
     if expanded:
         body = f'<div style="padding:4px 16px 14px 70px;white-space:pre-wrap;word-break:break-word" data-role="message">{e(m["text"])}</div>'
     else:
@@ -94,7 +95,7 @@ def _message_card(c: Ctx, m: dict, expanded: bool, t: str) -> str:
 def _thread(c: Ctx, with_reply: bool) -> str:
     head = (f'<div class="appbar"><div class="iconbtn">{C.icon("back")}</div><span class="grow"></span>'
             f'<div class="iconbtn">{C.icon("inbox")}</div><div class="iconbtn">{C.icon("dots")}</div></div>')
-    title = c.title or (c.fill.pick(F.SUBJ_RU, F.SUBJ_EN, 1) or [""])[0]
+    title = c.title or (c.fill.pick(F.SUBJ_RU, F.SUBJ_EN, 1, pool_he=F.SUBJ_HE) or [""])[0]
     subj = (f'<div class="row" style="padding:4px 16px 10px;gap:10px;align-items:flex-start"><div class="grow" style="font-size:{C.fs(22)}" data-role="title">'
             f'{e(title)}</div><span class="chip" style="height:24px;font-size:{C.fs(12)}" data-role="chrome">{e(c.ui["inbox"])}</span></div>')
     times = c.msg_times()
@@ -154,7 +155,7 @@ def email_compose(c: Ctx) -> str:
     else:
         fields = from_row + row(c.ui["to"], chip, "author")
     fields += row(c.ui["subject"], e(subj), "title") if subj else row(c.ui["subject"], "", "chrome")
-    hint = c.field.get("hint") or ("Текст письма" if c.locale == "ru" else "Compose email")
+    hint = c.field.get("hint") or ("Текст письма" if c.locale == "ru" else "כתיבת אימייל" if c.locale == "he" else "Compose email")
     if to_focus or not c.has_field:
         body = ""
     elif bc:
@@ -165,7 +166,9 @@ def email_compose(c: Ctx) -> str:
     if c.messages:
         m = c.messages[-1]
         when = c.fill.date_sep()
-        intro = (f'{when}, {m.get("author") or rec} пишет:' if c.locale == "ru" else f'On {when}, {m.get("author") or rec} wrote:')
+        intro = (f'{when}, {m.get("author") or rec} пишет:' if c.locale == "ru" else
+                 f'בתאריך {when}, {m.get("author") or rec} כתב/ה:' if c.locale == "he" else
+                 f'On {when}, {m.get("author") or rec} wrote:')
         quoted = (f'<div class="t2" style="margin-top:22px;font-size:{C.fs(14)}" data-role="chrome">{e(intro)}</div>'
                   f'<div class="t2" style="border-left:2px solid var(--divider);padding-left:10px;margin-top:4px;white-space:pre-wrap" data-role="message">'
                   f'{e(m["text"])}</div>')

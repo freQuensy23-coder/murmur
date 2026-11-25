@@ -430,12 +430,22 @@ private fun SRow(key: String, title: String, subtitle: String? = null, icon: Ima
 internal fun languagesSummary(s: Settings): String {
     val ru = "ru" in s.languages
     val en = "en" in s.languages
-    return when {
-        ru && en && s.autoDetectLanguage -> stringResource(R.string.settings_languages_both_auto)
-        ru && en -> stringResource(R.string.settings_languages_both)
-        ru -> stringResource(R.string.settings_languages_ru)
-        else -> stringResource(R.string.settings_languages_en)
+    val he = "he" in s.languages
+    if (!he) {
+        return when {
+            ru && en && s.autoDetectLanguage -> stringResource(R.string.settings_languages_both_auto)
+            ru && en -> stringResource(R.string.settings_languages_both)
+            ru -> stringResource(R.string.settings_languages_ru)
+            else -> stringResource(R.string.settings_languages_en)
+        }
     }
+    if (!ru && !en) return stringResource(R.string.settings_languages_he)
+    val names = buildList {
+        if (ru) add(stringResource(R.string.settings_language_ru))
+        if (en) add(stringResource(R.string.settings_language_en))
+        add(stringResource(R.string.settings_language_he))
+    }.joinToString(", ")
+    return if (s.autoDetectLanguage) stringResource(R.string.settings_languages_list_auto, names) else names
 }
 
 @Composable

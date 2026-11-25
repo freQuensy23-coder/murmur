@@ -605,13 +605,37 @@ class DictationMachineTest {
         assertEquals(2_000L, c.deliveryTimerMs())
     }
 
+    @Test fun toggleHebrewWhileListeningSwapsAsrAndUsesHebrewSpeechMeasurement() {
+        val hePlan = plan.copy(hebrewAvailable = true, hebrewSpeechMeasured = false)
+        // Ignored when Hebrew ASR is unavailable.
+        assertEquals(Transition(listening()), reduce(listening(), input(UserInput.ToggleHebrew)))
+        // Ignored during hold-to-talk.
+        assertEquals(Transition(listening(StartMode.HOLD, p = hePlan)), reduce(listening(StartMode.HOLD, p = hePlan), input(UserInput.ToggleHebrew)))
+        // Tap toggles Hebrew on, emits SwapAsr(s, hebrew = true) and haptic, marks ASR Loading.
+        val on = reduce(listening(p = hePlan), input(UserInput.ToggleHebrew))
+        val lOn = on.state as DictationState.Listening
+        assertTrue(lOn.hebrewActive)
+        assertEquals(AsrReadiness.Loading, lOn.engines.asr)
+        assertEquals(listOf(Effect.SwapAsr(s, hebrew = true), Effect.Haptic(HapticKind.CLOCK_TICK)), on.effects)
+        // Second tap toggles Hebrew back off.
+        val off = reduce(lOn, input(UserInput.ToggleHebrew))
+        val lOff = off.state as DictationState.Listening
+        assertFalse(lOff.hebrewActive)
+        assertEquals(listOf(Effect.SwapAsr(s, hebrew = false), Effect.Haptic(HapticKind.CLOCK_TICK)), off.effects)
+        // Finishing while Hebrew is active preserves hebrewActive and accepts streaming speechMs = 0.
+        val fin = reduce(lOn.copy(engines = readyEngines), tap(3_100)).state as DictationState.Finishing
+        assertTrue(fin.hebrewActive)
+        val polished = reduce(fin, DictationEvent.TranscriptReady(s, t.copy(text = "שלום עולם", language = "he", speechMs = 0), false))
+        assertTrue(polished.state is DictationState.Polishing)
+    }
+
     @Test fun reducerIsTotal() {
         val states = listOf(DictationState.Idle, arming(), arming().copy(plan = plan, engines = readyEngines), listening(), finishing(), polishing(),
             polishing(started = true), delivering(), DictationState.Done(s, DictationOutcome.Copied(entry)), DictationState.Done(s, DictationOutcome.Failed(MurmurError.NoSpeech, entry)),
             DictationState.Done(s, DictationOutcome.Failed(MurmurError.EngineLoadFailed(ModelKind.ASR, null), null), recording = true, retryAtMs = 500),
             DictationState.Arming(s, StartMode.TAP, 0, stopRequested = true, retryOf = entry))
         val inputs = listOf(UserInput.Tap, UserInput.HoldStart, UserInput.HoldRelease, UserInput.HoldSlideOff, UserInput.Cancel,
-            UserInput.NotificationStart, UserInput.InAppStart, UserInput.ResultTap, UserInput.ResultAction).map { DictationEvent.Input(it, 1_000) }
+            UserInput.ToggleHebrew, UserInput.NotificationStart, UserInput.InAppStart, UserInput.ResultTap, UserInput.ResultAction).map { DictationEvent.Input(it, 1_000) }
         val events = inputs + Timer.entries.map { DictationEvent.TimerFired(s, it) } + StopReason.entries.map { DictationEvent.ExternalStop(s, it, 1_000) } + listOf(
             DictationEvent.PreflightPassed(s, plan), DictationEvent.PreflightFailed(s, MurmurError.LowStorage), DictationEvent.MicStarted(s, 1), DictationEvent.MicFailed(s, MurmurError.MicBusy),
             DictationEvent.AsrReady(s, asrInfo, true), DictationEvent.AsrLoadFailed(s, MurmurError.NoVadModel), DictationEvent.LlmReady(s, llmInfo, 3_129, 9_216, null, false),

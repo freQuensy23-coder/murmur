@@ -4,7 +4,7 @@ Every pipeline (training, eval, export checks) renders prompts through `render_p
 which delegates to prompts/render.py, so the app, the training data and the eval share one format.
 
 Contract fields (binding; shared with ml/data, ml/roundtrip and prompts/eval):
-  id, lang ("ru"|"en"|"mixed"), category, source ("sim"|"tts"|"public:<ds>"|"manual"),
+  id, lang ("ru"|"en"|"mixed"|"he"|"he_en"|"he_ru"), category, source ("sim"|"tts"|"public:<ds>"|"manual"),
   split ("train"|"dev"|"test"), ctx (object for render.user_message), transcript, target, meta (object)
 Optional meta keys this code reads:
   meta.preferences      user "My preferences" text the target was written for (always rendered)
@@ -25,7 +25,7 @@ if str(PROMPTS) not in sys.path:
     sys.path.insert(0, str(PROMPTS))
 import render  # noqa: E402  (prompts/render.py, the executable spec of the prompt format)
 
-LANGS = {"ru", "en", "mixed"}
+LANGS = {"ru", "en", "mixed", "he", "he_en", "he_ru"}
 SPLITS = {"train", "dev", "test"}
 REQUIRED = ("id", "lang", "category", "source", "split", "ctx", "transcript", "target", "meta")
 

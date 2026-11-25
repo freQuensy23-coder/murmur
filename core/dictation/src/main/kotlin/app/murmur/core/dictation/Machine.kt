@@ -190,17 +190,19 @@ object DictationMachine {
         return when (e) {
             is DictationEvent.Input -> when (e.input) {
                 // Row 14 (TAP / NOTIFICATION / IN_APP; a tap on a HOLD pill too), row 15 (HOLD release).
-                UserInput.Tap -> stop(s, st.mode, st.startedAtMs, e.atMs, st.plan, st.engines, c)
-                UserInput.HoldRelease -> if (st.mode == StartMode.HOLD) stop(s, st.mode, st.startedAtMs, e.atMs, st.plan, st.engines, c) else Transition(st)
+                UserInput.Tap -> stop(s, st.mode, st.startedAtMs, e.atMs, st.plan, st.engines, c, hebrewActive = st.hebrewActive)
+                UserInput.HoldRelease -> if (st.mode == StartMode.HOLD) stop(s, st.mode, st.startedAtMs, e.atMs, st.plan, st.engines, c, hebrewActive = st.hebrewActive) else Transition(st)
                 // Row 12.
                 UserInput.Cancel, UserInput.HoldSlideOff -> discard(s, c, Effect.CancelTimer(Timer.WARN), Effect.CancelTimer(Timer.MAX_DURATION))
+                UserInput.ToggleHebrew -> toggleHebrew(st)
                 else -> Transition(st)
             }
+            is DictationEvent.ToggleHebrew -> toggleHebrew(st)
             is DictationEvent.TimerFired -> when (e.timer) {
                 // Row 16.
                 Timer.WARN -> Transition(st.copy(warn = true))
                 // Row 17: auto stop at 5:00.
-                Timer.MAX_DURATION -> stop(s, st.mode, st.startedAtMs, st.startedAtMs + c.scaled(c.maxDurationMs), st.plan, st.engines, c)
+                Timer.MAX_DURATION -> stop(s, st.mode, st.startedAtMs, st.startedAtMs + c.scaled(c.maxDurationMs), st.plan, st.engines, c, hebrewActive = st.hebrewActive)
                 else -> Transition(st)
             }
             is DictationEvent.ExternalStop -> if (e.reason == StopReason.A11Y_OFF) {
@@ -210,7 +212,7 @@ object DictationMachine {
                     Effect.RecordFailure(s, MurmurError.AccessibilityOff, keepAudio = true), Effect.ScheduleIdleUnload(c.idleUnloadMs))
             } else {
                 // Row 18: the audio so far is processed.
-                stop(s, st.mode, st.startedAtMs, maxOf(st.startedAtMs, e.atMs ?: st.startedAtMs), st.plan, st.engines, c)
+                stop(s, st.mode, st.startedAtMs, maxOf(st.startedAtMs, e.atMs ?: st.startedAtMs), st.plan, st.engines, c, hebrewActive = st.hebrewActive)
             }
             is DictationEvent.ProcessDied -> when (e.process) {
                 // Rows 21/22.
@@ -229,6 +231,15 @@ object DictationMachine {
         }
     }
 
+    private fun toggleHebrew(st: DictationState.Listening): Transition {
+        if (!st.plan.hebrewAvailable || st.mode == StartMode.HOLD) return Transition(st)
+        val next = !st.hebrewActive
+        return Transition(
+            st.copy(hebrewActive = next, engines = st.engines.copy(asr = AsrReadiness.Loading)),
+            listOf(Effect.SwapAsr(st.session, hebrew = next), Effect.Haptic(HapticKind.CLOCK_TICK)),
+        )
+    }
+
     /**
      * Row 14 (shared by 9, 15, 17, 18). ASR_FINAL covers the open tail (at most asrMaxTailMs: the segmenter decodes
      * while recording), or the [wholeRecording] for a retry, which feeds all of it at the stop.
@@ -236,6 +247,7 @@ object DictationMachine {
     private fun stop(
         s: SessionId, mode: StartMode, startedAt: Long, stoppedAt: Long, plan: SessionPlan, engines: EngineStatus, c: DictationConfig,
         wholeRecording: Boolean = false,
+        hebrewActive: Boolean = false,
     ): Transition {
         val asr = engines.asr
         if (asr is AsrReadiness.Failed) {
@@ -247,7 +259,7 @@ object DictationMachine {
         val tail = if (wholeRecording) recorded else minOf(recorded, c.asrMaxTailMs)
         val finalBudget = c.asrFinalTimeoutMs(tail) + if (asr == AsrReadiness.Loading) c.scaled(c.asrLoadWaitMs) else 0L
         return Transition(
-            DictationState.Finishing(s, mode, startedAt, stoppedAt, plan, engines, wholeRecording = wholeRecording),
+            DictationState.Finishing(s, mode, startedAt, stoppedAt, plan, engines, wholeRecording = wholeRecording, hebrewActive = hebrewActive),
             listOf(
                 Effect.StopCapture(s),
                 Effect.FinishAsr(s),
@@ -319,7 +331,7 @@ object DictationMachine {
         val s = st.session
         val stopTimers = listOf(Effect.CancelTimer(Timer.ASR_FINAL), Effect.CancelTimer(Timer.TRANSCRIBING_LABEL))
         // Row 26.
-        if (isNoSpeech(t, precheckSkip, st.plan, c)) {
+        if (isNoSpeech(t, precheckSkip, st.plan, c, hebrewActive = st.hebrewActive)) {
             return failed(s, MurmurError.NoSpeech, null, c,
                 *stopTimers.toTypedArray(), Effect.RecordFailure(s, MurmurError.NoSpeech, keepAudio = true), Effect.ScheduleIdleUnload(c.idleUnloadMs))
         }
@@ -563,8 +575,8 @@ object DictationMachine {
     }
 
     /** Row 26: the transcript is no speech (failed, audio kept); the executor asks the same before it loads an LLM. */
-    fun isNoSpeech(t: Transcript, precheckSkip: Boolean, plan: SessionPlan, c: DictationConfig): Boolean =
-        precheckSkip || t.text.isBlank() || (plan.speechMeasured && t.speechMs < c.minSpeechMs)
+    fun isNoSpeech(t: Transcript, precheckSkip: Boolean, plan: SessionPlan, c: DictationConfig, hebrewActive: Boolean = false): Boolean =
+        precheckSkip || t.text.isBlank() || (plan.speechMeasuredFor(hebrewActive) && t.speechMs < c.minSpeechMs)
 
     /** cleanup_outcome code for an LLM that is not usable (ARCHITECTURE 15). */
     fun skipReasonOf(e: MurmurError): String = when (e) {
@@ -594,5 +606,6 @@ object DictationMachine {
         is DictationEvent.ExternalStop -> session
         is DictationEvent.FailureRecorded -> session
         is DictationEvent.RetryRequested -> null
+        is DictationEvent.ToggleHebrew -> session
     }
 }

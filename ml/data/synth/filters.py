@@ -16,28 +16,37 @@ from ml.common.schema import validate_record
 CMD_PHRASES = ["новый абзац", "новая строка", "с новой строки", "вопросительный знак", "восклицательный знак",
                "открыть кавычки", "закрыть кавычки", "открой кавычки", "закрой кавычки", "двоеточие",
                "new paragraph", "new line", "question mark", "exclamation mark", "exclamation point", "open quote",
-               "close quote", "open quotes", "close quotes"]
+               "close quote", "open quotes", "close quotes",
+               "פסקה חדשה", "שורה חדשה", "סימן שאלה", "סימן קריאה", "פתח מרכאות", "סגור מרכאות"]
 CMD_WORDS = {"точка", "запятая", "запятую", "двоеточие", "тире", "абзац", "строка", "строки", "кавычки", "знак",
              "вопросительный", "восклицательный", "period", "comma", "colon", "paragraph", "line", "quote", "quotes",
              "mark", "point", "dash", "semicolon", "открыть", "закрыть", "открой", "закрой", "новый", "новая", "new",
-             "open", "close", "full", "stop", "скобка", "скобку", "bracket", "question", "exclamation"}
+             "open", "close", "full", "stop", "скобка", "скобку", "bracket", "question", "exclamation",
+             "נקודה", "פסיק", "נקודתיים", "מקף", "פסקה", "שורה", "חדשה", "סימן", "שאלה", "קריאה", "מרכאות",
+             "פתח", "סגור"}
 ORDINALS = {"во-первых", "во-вторых", "в-третьих", "в-четвертых", "в-пятых", "первое", "второе", "третье", "четвертое",
             "пятое", "first", "second", "third", "fourth", "fifth", "firstly", "secondly", "thirdly", "пункт", "item",
             "number", "раз", "два", "три", "четыре", "пять", "one", "two", "three", "four", "five", "во", "первых",
             "вторых", "третьих", "next", "finally", "последнее", "lastly", "и", "and", "also", "then", "потом",
-            "дальше", "ещё", "еще", "plus"}
+            "дальше", "ещё", "еще", "plus",
+            "ראשון", "ראשונה", "שני", "שנייה", "שלישי", "שלישית", "רביעי", "חמישי", "קודם", "דבר", "אחת", "שתיים",
+            "שלוש", "ארבע", "חמש", "סעיף", "ובסוף", "בסוף"}
 SC_MARKERS = ["нет, ", "ой, ", "точнее", "вернее", "в смысле", "то есть", "не-не", "no wait", "scratch that",
-              "i mean", "sorry, ", "make that", "or rather"]
+              "i mean", "sorry, ", "make that", "or rather",
+              "לא רגע", "תמחק את זה", "זאת אומרת", "לא לא,"]
 SYMBOL_WORDS = {"плюс", "plus", "решётка", "решетка", "hash", "собака", "at", "dot", "точка", "слэш", "слеш", "slash",
                 "дефис", "hyphen", "dash", "underscore", "подчёркивание", "подчеркивание", "амперсанд", "ampersand",
-                "тильда", "tilde", "sharp", "шарп", "шарпе", "шарпа", "шарпом", "си"}
+                "тильда", "tilde", "sharp", "шарп", "шарпе", "шарпа", "шарпом", "си",
+                "נקודה", "שטרודל", "סלאש", "מקף", "פלוס", "סולמית"}
 # number-scale words: 'eight hundred' -> '800'
 SCALE_WORDS = {"hundred", "hundreds", "thousand", "thousands", "million", "millions", "billion", "сто", "тысяча",
-               "тысячи", "тысяч", "тысячу", "миллион", "миллиона", "миллионов", "номер", "номера", "номеру"}
+               "тысячи", "тысяч", "тысячу", "миллион", "миллиона", "миллионов", "номер", "номера", "номеру",
+               "מאה", "מאתיים", "מאות", "אלף", "אלפיים", "אלפים", "מיליון", "מיליארד", "מספר"}
 _SYMBOL_IN_TOKEN = re.compile(r"\w[#./~@+]|[#./~@+]\w")
 SYMBOL_CATS = {"address", "formatting_commands", "numbers"}  # where a spoken symbol may become a symbol
 UNIT_PREFIXES = ("процент", "percent", "доллар", "dollar", "бакс", "buck", "рубл", "евро", "euro", "cent", "цент",
-                 "pound", "фунт", "тенге", "o'clock")
+                 "pound", "фунт", "тенге", "o'clock",
+                 "אחוז", "שקל", "דולר", "אירו", "יורו", "אגורה", "אגורות")
 MONTHS_DAYS = {w.lower() for w in "January February March April May June July August September October November "
                "December Monday Tuesday Wednesday Thursday Friday Saturday Sunday".split()}
 
@@ -62,13 +71,14 @@ ADDRESS_RE = re.compile(r"^(?:[\w.+-]+@[\w-]+(?:\.[\w-]+)+|(?:https?://)?(?:www\
 TAIL_MARKERS = ["субтитры", "продолжение следует", "thanks for watching", "amara.org", "подписывайтесь", "dimatorzok",
                 "редактор субтитров", "спасибо за просмотр", "thank you for watching", "castingwords",
                 "like and subscribe", "subscribe to my channel", "next video", "следующем видео",
-                "ставьте лайки"]
+                "ставьте лайки",
+                "תודה שצפיתם", "הירשמו לערוץ", "כתוביות בעברית", "כתוביות אוטומטיות", "נתראה בסרטון הבא"]
 _LIST_MARK = re.compile(r"(?m)^\s*\d+[.)]\s+")
 
 
 def _num_multiset(s: str, lang: str) -> Counter:
     s = _LIST_MARK.sub("", s)
-    return Counter(T.numbers_in(s, None if lang == "mixed" else lang))
+    return Counter(T.numbers_in(s, None if lang in ("mixed", "he_en", "he_ru") else lang))
 
 
 def _matches(w: str, pool: set[str]) -> bool:
@@ -100,15 +110,27 @@ def check(rec: dict) -> list[str]:
         out.append("artifact_in_target")
     # language: never translate
     # script shares without numbers: 'в семь' -> 'в 7' is not a script shift
-    cs_t, cs_s = T.cyr_share(_no_numbers(tgt)), T.cyr_share(_no_numbers(spoken or tr))
-    if lang == "en" and cs_t > 0:
-        out.append("cyrillic_in_en")
-    if lang == "ru" and cat != "address" and cs_t < 0.5:
-        out.append("ru_not_cyrillic")
-    if cat not in ("address", "context_counterpart") and abs(cs_t - cs_s) > 0.25:
-        out.append("script_shift")
-    if lang == "mixed" and meta.get("mix") == "switch" and not (T.script_counts(tgt)[0] and T.script_counts(tgt)[1] >= 6):
-        out.append("switch_without_both_languages")
+    if lang in ("he", "he_en", "he_ru"):
+        hs_t, hs_s = T.heb_share(_no_numbers(tgt)), T.heb_share(_no_numbers(spoken or tr))
+        c3_t = T.script_counts_3(_no_numbers(tgt))
+        if lang == "he" and cat != "address" and hs_t < 0.5:
+            out.append("he_not_hebrew")
+        if cat not in ("address", "context_counterpart") and abs(hs_t - hs_s) > 0.30:
+            out.append("script_shift")
+        if lang == "he_en" and meta.get("mix") == "he_en_switch" and not (c3_t[2] >= 4 and c3_t[1] >= 4):
+            out.append("switch_without_both_languages")
+        if lang == "he_ru" and cat != "address" and not (c3_t[2] >= 3 and c3_t[0] >= 3):
+            out.append("switch_without_both_languages")
+    else:
+        cs_t, cs_s = T.cyr_share(_no_numbers(tgt)), T.cyr_share(_no_numbers(spoken or tr))
+        if lang == "en" and cs_t > 0:
+            out.append("cyrillic_in_en")
+        if lang == "ru" and cat != "address" and cs_t < 0.5:
+            out.append("ru_not_cyrillic")
+        if cat not in ("address", "context_counterpart") and abs(cs_t - cs_s) > 0.25:
+            out.append("script_shift")
+        if lang == "mixed" and meta.get("mix") == "switch" and not (T.script_counts(tgt)[0] and T.script_counts(tgt)[1] >= 6):
+            out.append("switch_without_both_languages")
     # content: target words come from what was spoken (+ the on-screen spelling of the restored term)
     ents = list(meta.get("entities", [])) + (chk_forbid := list((meta.get("check") or {}).get("forbid", [])
                                                               if cat == "context_counterpart" else []))
@@ -117,7 +139,8 @@ def check(rec: dict) -> list[str]:
         sw = T.norm_words(spoken)
         sp_words = _parts(sw) | allow | {a + "-" + b for a, b in zip(sw, sw[1:])} | {a + b for a, b in zip(sw, sw[1:])}
         novel = [w for w in T.content_words(tgt)
-                 if not _matches(w, sp_words) and not all(_matches(p, sp_words) for p in w.split("-") if p)]
+                 if not _matches(w, sp_words) and not all(_matches(p, sp_words) for p in w.split("-") if p)
+                 and not re.fullmatch(r"[\u05d0-\u05ea]-\d+", w)]
         if cat == "context_names":
             novel = [w for w in novel if not any(w[:4] == a[:4] for a in allow)]
         if novel:
@@ -142,7 +165,7 @@ def check(rec: dict) -> list[str]:
                 out.append("number_mismatch")
         elif nt != ns and (nt - ns):
             out.append("number_mismatch")
-        if T.spelled_numbers_over(tgt, 10, None if lang == "mixed" else lang):
+        if T.spelled_numbers_over(tgt, 10, None if lang in ("mixed", "he_en", "he_ru") else lang):
             out.append("number_words_in_target")
         from ml.data.synth.build import digits_spelled_out
         if cat not in ("no_op", "near_no_op") and digits_spelled_out(tr, tgt, lang):

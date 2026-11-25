@@ -41,6 +41,8 @@ HINTS = {
            "address": "Введите адрес", "note": "Заметка", "code": "", "generic": "Введите текст"},
     "en": {"message": "Message", "email_body": "Compose email", "email_subject": "Subject", "search": "Search",
            "address": "Enter address", "note": "Note", "code": "", "generic": "Type here"},
+    "he": {"message": "הודעה", "email_body": "כתיבת אימייל", "email_subject": "נושא", "search": "חיפוש",
+           "address": "הזן כתובת", "note": "הערה", "code": "", "generic": "הקלד כאן"},
 }
 # screen absent (CONTEXT_V2: secure window, denylisted app, screenshot error, OCR found nothing). A password field
 # is never generated: the app does not run the LLM there (ADR-070, prompts/render.py NO_SCREEN_LEVEL -> "none"),
@@ -56,9 +58,12 @@ def _pick(r, weighted):
 
 def render_params(key: str, app_category: str, lang: str, field_present: bool) -> dict:
     r = mkrng("render.v1", key)
-    locale = "en-US" if lang == "en" else "ru-RU"
-    if r.random() < 0.15:  # Russian speaker with an English UI and vice versa
-        locale = "ru-RU" if locale == "en-US" else "en-US"
+    if lang in ("he", "he_en", "he_ru"):
+        locale = "he-IL" if r.random() < 0.80 else "en-US"
+    else:
+        locale = "en-US" if lang == "en" else "ru-RU"
+        if r.random() < 0.15:  # Russian speaker with an English UI and vice versa
+            locale = "ru-RU" if locale == "en-US" else "en-US"
     return {"template": TEMPLATE_BY_APP.get(app_category, "generic"), "device": _pick(r, DEVICE_W),
             "theme": _pick(r, THEME_W), "font_scale": _pick(r, FONT_W), "locale": locale,
             "keyboard": field_present and r.random() < 0.7, "seed": r.randrange(1 << 30)}
@@ -180,7 +185,7 @@ def make_spec(sc: dict, content: dict, variant: int = 0) -> dict:
             title = inj["text"]
     for m, t in zip(msgs, _times(r, len(msgs))):
         m["time"] = t
-    hint_lang = "en" if p["locale"].startswith("en") else "ru"
+    hint_lang = "he" if p["locale"].startswith("he") else ("en" if p["locale"].startswith("en") else "ru")
     SM = _specs_mod()
     if SM is not None:
         p0 = sc["render"]
@@ -370,7 +375,7 @@ def finalize(ctx: dict, sc: dict) -> dict:
     scr = (ctx or {}).get("screen")
     if scr and scr.get("lines"):
         out["screen"] = {"size": list(scr.get("size") or []), "lines": list(scr["lines"])}
-    out["language"] = {"asr": "en" if sc["lang"] == "en" else "ru"}
+    out["language"] = {"asr": "he" if sc["lang"] in ("he", "he_en", "he_ru") else ("en" if sc["lang"] == "en" else "ru")}
     out["privacy"] = {"level": "full", "reason": None if "screen" in out else "ocr_empty"}
     return out
 
@@ -395,7 +400,7 @@ def absent_ctx(sc: dict, before_cursor: str = "") -> dict:
         out["field"] = {"kind": sc["field_kind"], "before_cursor": before_cursor if sc["category"] == "continuation" else ""}
         if sc.get("input_type_variation"):
             out["field"]["input_type_variation"] = sc["input_type_variation"]
-    out["language"] = {"asr": "en" if sc["lang"] == "en" else "ru"}
+    out["language"] = {"asr": "he" if sc["lang"] in ("he", "he_en", "he_ru") else ("en" if sc["lang"] == "en" else "ru")}
     out["privacy"] = {"level": no_screen_level(reason), "reason": reason}
     return out
 

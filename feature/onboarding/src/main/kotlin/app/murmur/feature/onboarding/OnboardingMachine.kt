@@ -4,12 +4,12 @@ import app.murmur.core.dictation.PermissionState
 
 /**
  * The first-run steps of DESIGN 6.1. WELCOME, then the four permission steps, then the models (choice, download,
- * paused download), then the practice field. RESTRICTED is the recovery screen of step 2 (ob-restricted); there is no
- * overlay step (ADR-034).
+ * paused download). RESTRICTED is the recovery screen of step 2 (ob-restricted); there is no overlay step (ADR-034).
+ * Finishing the models download (or continuing while downloading / without cleanup) completes onboarding directly.
  */
-enum class OnboardingStep { WELCOME, MIC, ACCESSIBILITY, RESTRICTED, NOTIFICATIONS, BATTERY, MODELS, DOWNLOADING, DOWNLOAD_PAUSED, READY }
+enum class OnboardingStep { WELCOME, MIC, ACCESSIBILITY, RESTRICTED, NOTIFICATIONS, BATTERY, MODELS, DOWNLOADING, DOWNLOAD_PAUSED }
 
-/** Index of the step in the 5-dot progress (DESIGN 6.1 "n of 5"); READY = 5 ("Done"), WELCOME = no dots. */
+/** Index of the step in the 5-dot progress (DESIGN 6.1 "n of 5"); WELCOME = no dots. */
 val OnboardingStep.dotIndex: Int
     get() = when (this) {
         OnboardingStep.WELCOME, OnboardingStep.MIC -> 0
@@ -17,7 +17,6 @@ val OnboardingStep.dotIndex: Int
         OnboardingStep.NOTIFICATIONS -> 2
         OnboardingStep.BATTERY -> 3
         OnboardingStep.MODELS, OnboardingStep.DOWNLOADING, OnboardingStep.DOWNLOAD_PAUSED -> 4
-        OnboardingStep.READY -> 5
     }
 
 /** What the models part knows about the downloads of the chosen pack (see [DownloadSummary]). */
@@ -50,7 +49,7 @@ data class OnboardingState(
     val speechReady: Boolean = false,
     /** Set when the user leaves setup with Back on a step that cannot be skipped. */
     val exited: Boolean = false,
-    /** Set by Done on the practice step: the shell writes Settings.onboardingDone. */
+    /** Set when onboarding finishes (downloads complete or user continues): the shell writes Settings.onboardingDone. */
     val finished: Boolean = false,
 )
 
@@ -75,10 +74,8 @@ sealed interface OnboardingEvent {
     data class Downloads(val phase: ModelsPhase, val speechReady: Boolean) : OnboardingEvent
     /** "Try again" on the paused screen. */
     data object RetryDownload : OnboardingEvent
-    /** "Continue while downloading" / "Continue without cleanup". */
-    data object ContinueToPractice : OnboardingEvent
-    /** "Done" on the practice screen. */
-    data object Done : OnboardingEvent
+    /** "Continue while downloading" / "Continue without cleanup": finishes onboarding directly. */
+    data object Continue : OnboardingEvent
     /** System Back. */
     data object Back : OnboardingEvent
 }
@@ -132,13 +129,12 @@ object OnboardingMachine {
         is OnboardingEvent.Downloads -> onDownloads(s.copy(models = e.phase, speechReady = e.speechReady))
         OnboardingEvent.RetryDownload ->
             if (s.step == OnboardingStep.DOWNLOAD_PAUSED) s.copy(step = OnboardingStep.DOWNLOADING, models = ModelsPhase.ACTIVE) else s
-        OnboardingEvent.ContinueToPractice -> when (s.step) {
-            OnboardingStep.DOWNLOADING -> s.copy(step = OnboardingStep.READY)
+        OnboardingEvent.Continue -> when (s.step) {
+            OnboardingStep.DOWNLOADING -> s.copy(finished = true)
             // "Continue without cleanup" is offered only once the speech model works.
-            OnboardingStep.DOWNLOAD_PAUSED -> if (s.speechReady) s.copy(step = OnboardingStep.READY) else s
+            OnboardingStep.DOWNLOAD_PAUSED -> if (s.speechReady) s.copy(finished = true) else s
             else -> s
         }
-        OnboardingEvent.Done -> if (s.step == OnboardingStep.READY) s.copy(finished = true) else s
         OnboardingEvent.Back -> onBack(s)
     }
 
@@ -170,19 +166,19 @@ object OnboardingMachine {
 
     private fun onDownloads(s: OnboardingState): OnboardingState = when (s.step) {
         OnboardingStep.DOWNLOADING -> when (s.models) {
-            ModelsPhase.DONE -> s.copy(step = OnboardingStep.READY)
+            ModelsPhase.DONE -> s.copy(finished = true)
             ModelsPhase.STOPPED -> s.copy(step = OnboardingStep.DOWNLOAD_PAUSED)
             else -> s
         }
         OnboardingStep.DOWNLOAD_PAUSED -> when (s.models) {
-            ModelsPhase.DONE -> s.copy(step = OnboardingStep.READY)
+            ModelsPhase.DONE -> s.copy(finished = true)
             // Resumed elsewhere (the hub, or the job came back with the network).
             ModelsPhase.ACTIVE -> s.copy(step = OnboardingStep.DOWNLOADING)
             else -> s
         }
         // A pack downloaded or downloading from an earlier run: no second choice.
         OnboardingStep.MODELS -> when (s.models) {
-            ModelsPhase.DONE -> s.copy(step = OnboardingStep.READY)
+            ModelsPhase.DONE -> s.copy(finished = true)
             ModelsPhase.ACTIVE -> s.copy(step = OnboardingStep.DOWNLOADING)
             ModelsPhase.STOPPED -> s.copy(step = OnboardingStep.DOWNLOAD_PAUSED)
             ModelsPhase.NONE -> s
@@ -196,7 +192,6 @@ object OnboardingMachine {
         // a running download (it continues in the background).
         OnboardingStep.WELCOME, OnboardingStep.MIC, OnboardingStep.ACCESSIBILITY,
         OnboardingStep.DOWNLOADING, OnboardingStep.DOWNLOAD_PAUSED -> s.copy(exited = true)
-        OnboardingStep.READY -> s.copy(exited = true)
         OnboardingStep.NOTIFICATIONS, OnboardingStep.BATTERY, OnboardingStep.MODELS -> {
             val i = ORDER.indexOf(s.step)
             val prev = (i - 1 downTo 0).map { ORDER[it] }.firstOrNull { !satisfied(s, it) }
@@ -212,7 +207,7 @@ object OnboardingMachine {
             val step = ORDER[i]
             if (!satisfied(s, step)) return step
         }
-        return OnboardingStep.READY
+        return OnboardingStep.MODELS
     }
 
     /**

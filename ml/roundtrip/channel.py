@@ -42,6 +42,8 @@ PRESETS: Dict[str, ChannelPreset] = {
     "clean": ChannelPreset("clean"),
     "phone": ChannelPreset("phone", band=(120.0, 7000.0), rt60_s=0.25, wet=0.12, agc=True, drive=1.6,
                            snr_db=25.0, noise_colour="pink"),
+    "phone_mid": ChannelPreset("phone_mid", band=(140.0, 6800.0), rt60_s=0.32, wet=0.16, agc=True,
+                               drive=1.8, snr_db=18.0, noise_colour="pink"),
     "phone_noisy": ChannelPreset("phone_noisy", band=(150.0, 7000.0), rt60_s=0.4, wet=0.2, agc=True,
                                  drive=2.0, snr_db=12.0, noise_colour="pink"),
     "far": ChannelPreset("far", band=(200.0, 5000.0), rt60_s=0.6, wet=0.35, agc=True, drive=1.3,

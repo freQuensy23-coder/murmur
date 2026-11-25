@@ -130,7 +130,8 @@ internal fun ModelDetailContent(
                     if (view.inUse) InUsePill()
                     view.chosenUnit?.let { UnitBadgeView(it, chosen = true) }
                     view.quant?.let { MurmurBadge(it, BadgeKind.Neutral) }
-                    if (view.row.noRussian) NoRussianBadge()
+                    if (view.row.noRussian && (view.row.missingLanguages.isEmpty() || "ru" in view.row.missingLanguages)) NoRussianBadge()
+                    if ("he" in view.row.missingLanguages) MurmurBadge(stringResource(R.string.models_no_hebrew), BadgeKind.NoRussian)
                     if (view.row.state == RowState.InTraining) InTrainingBadge()
                 }
                 Text(

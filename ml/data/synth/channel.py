@@ -41,7 +41,8 @@ STYLE_FILE = PROBE_DIR / "asr_style.v1.json"           # ml.data.realism measure
 SCALE_FILE = PROBE_DIR / "word_noise_scale.v1.json"    # ml.data.realism calibrate
 # Insertions a decoder plausibly makes: function words and fillers (noise.py's own fallback vocabulary)
 INS_OK_EXTRA = {"и", "а", "в", "ну", "вот", "это", "the", "a", "and", "uh", "to", "it", "i", "у", "с", "к", "о", "я",
-                "да", "но", "же", "ли", "an", "in", "on", "of", "is", "that", "so", "um"}
+                "да", "но", "же", "ли", "an", "in", "on", "of", "is", "that", "so", "um",
+                "את", "של", "על", "עם", "אז", "נו", "אממ", "אה", "זה"}
 # function-word swaps a recogniser makes although they do not share sounds (noise.py _SHORT_SWAPS, ml/roundtrip)
 SHORT_SWAPS = {
     "в": ["во", "и", "на"], "во": ["в"], "и": ["а", "в"], "а": ["и", "о"], "на": ["но", "а"], "не": ["ни", "и"],
@@ -49,6 +50,7 @@ SHORT_SWAPS = {
     "что": ["чтобы", "то"], "это": ["то", "эта"], "the": ["a", "that"], "a": ["the", "uh"], "to": ["the", "do"],
     "in": ["and", "on"], "on": ["in", "an"], "and": ["in", "an"], "of": ["off", "a"], "it": ["that", "is"],
     "is": ["was", "his"], "for": ["four", "from"], "at": ["that", "it"],
+    "עם": ["אם"], "אם": ["עם"], "על": ["אל"], "אל": ["על"], "כאן": ["כן"], "כן": ["כאן"],
 }
 _LAT_RUN_MIN = 3
 
@@ -125,7 +127,10 @@ def _lang_runs(text: str) -> list[tuple[str, str]]:
 
 BUILTIN_LANGS = {"whisper": ("ru", "en", "mixed"), "parakeet_v3": ("ru", "en", "mixed"),
                  "nemotron_3_5": ("ru", "en", "mixed"), "gigaam_v3_e2e": ("ru", "mixed"), "t_one": ("ru",),
-                 "qwen3_asr": ("ru", "en", "mixed")}
+                 "qwen3_asr": ("ru", "en", "mixed"),
+                 "zipformer2_he": ("he", "he_en", "he_ru"), "whisper_he": ("he", "he_en", "he_ru")}
+HE_LANGS = {"he", "he_en", "he_ru"}
+HE_MODELS = ("zipformer2_he", "whisper_he")
 RU_ONLY_HINTS = ("gigaam", "t-one", "t_one")
 
 
@@ -187,6 +192,8 @@ class Channel:
 
     # ------------------------------------------------------------------ models
     def models(self, lang: str) -> list[str]:
+        if lang in HE_LANGS:
+            return list(HE_MODELS)
         if self.nm is None:
             return [m for m, ls in BUILTIN_LANGS.items() if lang in ls]
         out = []
@@ -212,6 +219,13 @@ class Channel:
         return r.choice(ms) if ms else self.pick_model(lang, r)
 
     def pick_model(self, lang: str, r: random.Random, prefer: str | None = None, switch: bool = False) -> str:
+        if lang in HE_LANGS:
+            if prefer:
+                hit = [m for m in HE_MODELS if prefer in m]
+                if hit:
+                    return hit[0]
+            # zipformer2-66m-streaming-he is the shipping Hebrew ASR (80%), whisper_he covers punctuated/mixed fallback
+            return "zipformer2_he" if r.random() < 0.80 else "whisper_he"
         ms = self.models(lang)
         if switch:  # true code-switching: only recognisers that write the English clause in English
             ms = [m for m in ms if self.can_switch(m)] or ms
@@ -239,7 +253,7 @@ class Channel:
                    severity: float) -> tuple[str, list[str]]:
         """terms: [{"text", "category"}] Latin terms present in `spoken` (the channel may mangle them)."""
         r = random.Random(seed)
-        if self.nm is None:
+        if self.nm is None or lang in HE_LANGS or model in HE_MODELS:
             ents = [{"text": t["text"], "kind": "tech"} for t in terms]
             # punctuation and casing are projected from the punctuated spoken text (what the audio supports),
             # not from the edited target
@@ -499,7 +513,8 @@ def _term_habits(path: str) -> dict:
 
 # recogniser families: prior survival rates when the probe has not measured a model
 RENDER_PRIORS = [("whisper", 0.1, 0.5), ("distil", 0.1, 0.5), ("qwen3", 0.1, 0.5), ("parakeet", 0.3, 0.9),
-                 ("nemotron", 0.3, 0.9), ("gigaam", 0.5, 0.9), ("t-one", 0.5, 0.9), ("t_one", 0.5, 0.9)]
+                 ("nemotron", 0.3, 0.9), ("gigaam", 0.5, 0.9), ("t-one", 0.5, 0.9), ("t_one", 0.5, 0.9),
+                 ("zipformer2", 0.7, 0.9)]
 
 
 @lru_cache(maxsize=1)

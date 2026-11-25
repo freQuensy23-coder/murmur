@@ -122,7 +122,7 @@ def test_apps_categories_and_templates_are_coherent():
         if app["category"] == "messaging":
             assert fam in ("messenger", "work_chat"), (app, tpl)
         if app["category"] == "work_chat":
-            assert tpl == "work_chat", (app, tpl)
+            assert tpl in ("work_chat", "issue_tracker"), (app, tpl)
         if sc["field_kind"] == "address":
             assert app["category"] in ("email", "search"), app
         if app["package"] == "com.termux":

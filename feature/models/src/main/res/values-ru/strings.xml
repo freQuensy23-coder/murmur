@@ -11,6 +11,7 @@
     <string name="models_streaming">потоковая</string>
     <string name="models_byline">%1$s · %2$s</string>
     <string name="models_preview_only">Только предпросмотр, пока нельзя выбрать</string>
+    <string name="models_no_hebrew">Без иврита</string>
     <string name="models_selected_download">Выбрана. Скачайте, чтобы использовать.</string>
     <string name="models_queued">Ждёт загрузки</string>
     <string name="models_progress">%1$s из %2$s</string>
@@ -69,6 +70,7 @@
         <item quantity="many">%d языков</item>
         <item quantity="other">%d языка</item>
     </plurals>
+    <string name="lang_including_three">%1$s, включая %2$s, %3$s и %4$s</string>
     <string name="lang_including_two">%1$s, включая %2$s и %3$s</string>
     <string name="lang_including_one">%1$s, включая %2$s</string>
     <string name="lang_not_listed">%1$s; %2$s не указан</string>

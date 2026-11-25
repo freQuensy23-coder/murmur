@@ -10,7 +10,14 @@ import app.murmur.core.model.MurmurError
 sealed interface DictationBubble {
     data object Idle : DictationBubble
     /** [frozenAtMs] != null: stop received, the timer shows frozenAt - startedAt (first 300 ms of Finishing). */
-    data class Listening(val startedAtMs: Long, val hold: Boolean, val warn: Boolean, val frozenAtMs: Long? = null) : DictationBubble
+    data class Listening(
+        val startedAtMs: Long,
+        val hold: Boolean,
+        val warn: Boolean,
+        val frozenAtMs: Long? = null,
+        val hebrewAvailable: Boolean = false,
+        val hebrewActive: Boolean = false,
+    ) : DictationBubble
     data object Transcribing : DictationBubble
     data object Polishing : DictationBubble
     data class Inserted(val noCleanup: Boolean) : DictationBubble
@@ -29,10 +36,17 @@ object BubbleMapping {
         DictationState.Idle -> DictationBubble.Idle
         // A retry has no live recording: it is decoding stored audio from the start.
         is DictationState.Arming -> if (state.retryOf != null) DictationBubble.Transcribing
-            else DictationBubble.Listening(state.pressedAtMs, state.mode == StartMode.HOLD, warn = false)
-        is DictationState.Listening -> DictationBubble.Listening(state.startedAtMs, state.mode == StartMode.HOLD, state.warn)
+            else DictationBubble.Listening(state.pressedAtMs, state.mode == StartMode.HOLD, warn = false,
+                hebrewAvailable = state.plan?.hebrewAvailable == true && state.mode != StartMode.HOLD)
+        is DictationState.Listening -> DictationBubble.Listening(
+            state.startedAtMs, state.mode == StartMode.HOLD, state.warn,
+            hebrewAvailable = state.plan.hebrewAvailable && state.mode != StartMode.HOLD, hebrewActive = state.hebrewActive,
+        )
         is DictationState.Finishing -> if (state.showTranscribing) DictationBubble.Transcribing
-            else DictationBubble.Listening(state.startedAtMs, state.mode == StartMode.HOLD, warn = false, frozenAtMs = state.stoppedAtMs)
+            else DictationBubble.Listening(
+                state.startedAtMs, state.mode == StartMode.HOLD, warn = false, frozenAtMs = state.stoppedAtMs,
+                hebrewAvailable = false, hebrewActive = state.hebrewActive,
+            )
         is DictationState.Polishing -> DictationBubble.Polishing
         // ARCHITECTURE 5.1: Delivering keeps whatever the previous working state showed (no Transcribing flash).
         is DictationState.Delivering -> state.shownAs

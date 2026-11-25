@@ -5,7 +5,7 @@ import java.text.Normalizer
 import java.util.regex.Pattern
 
 /**
- * Kotlin port of prompts/guard.py (GUARD_VERSION guard.v1.1). Same rules in the same order, same reason codes; the
+ * Kotlin port of prompts/guard.py (GUARD_VERSION guard.v1.2). Same rules in the same order, same reason codes; the
  * contract is every case of prompts/tests/test_guard.py (exported to goldens/guard.json by make_goldens.py).
  *
  * Regexes keep the Python patterns; `\w`, `\s`, `\S` and `\b` are spelled out as explicit classes ([Py.W], [Py.S]) so
@@ -64,6 +64,7 @@ class GuardPyPort : OutputGuard {
         val fb = fallbackText(tr, ctx)
         val o = repair(output, tr, ctx)
         val cat = ctx?.app?.category
+        val fieldKind = ctx?.field?.kind
         val tw = content(words(tr))
         val ow = content(words(o))
         fun fallback(reason: String) = GuardVerdict(fb, GuardAction.FALLBACK, reason)
@@ -80,16 +81,18 @@ class GuardPyPort : OutputGuard {
         if (ow.size > GROW_K * tw.size + GROW_ADD || (tw.size >= SHRINK_MIN_IN && ow.size < SHRINK_K * tw.size)) {
             return fallback("R4_length")
         }
-        if (cat == null || cat !in NO_SCRIPT_CHECK) {
-            val (tl, tc) = letters(tr)
-            val (ol, oc) = letters(o)
-            val tn = tl + tc
-            val on = ol + oc
+        if ((cat == null || cat !in NO_SCRIPT_CHECK) && (fieldKind == null || fieldKind !in NO_SCRIPT_CHECK)) {
+            val (tl, tc, th) = letters(tr)
+            val (ol, oc, oh) = letters(o)
+            val tn = tl + tc + th
+            val on = ol + oc + oh
             if (tn >= SCRIPT_MIN_LETTERS && on != 0) {
-                for ((ts, os) in listOf(tl to ol, tc to oc)) {
+                for ((ts, os) in listOf(tl to ol, tc to oc, th to oh)) {
                     if (ts >= SCRIPT_MIN_LETTERS && ts.toDouble() / tn >= 0.2 && os.toDouble() / on < 0.05) return fallback("R5_script")
                 }
-                if (tc.toDouble() / tn >= 0.7 && oc.toDouble() / on < 0.3) return fallback("R5_script")
+                for ((ts, os) in listOf(tc to oc, th to oh)) {
+                    if (ts.toDouble() / tn >= 0.7 && os.toDouble() / on < 0.3) return fallback("R5_script")
+                }
             }
             if (translatedSpan(tr, o)) return fallback("R5b_translated_span")
         }
@@ -113,19 +116,23 @@ class GuardPyPort : OutputGuard {
     }
 
     // ------------------------------------------------------------ helpers (guard.py names)
-    /** _WORD.findall: `[\w]+(?:[-'’][\w]+)*`. */
+    /** _word_tokens: strip Hebrew combining niqqud marks, then `[\w]+(?:[-'’׳״][\w]+)*׳?`. */
     internal fun wordTokens(s: String): List<String> {
-        val c = Py.cps(s)
+        val raw = Py.cps(s)
+        val c = if (raw.any { Py.isHebrewMark(it) }) raw.filter { !Py.isHebrewMark(it) }.toIntArray() else raw
         val out = ArrayList<String>()
         var k = 0
         while (k < c.size) {
             if (!Py.isWord(c[k])) { k++; continue }
             val start = k
             while (k < c.size && Py.isWord(c[k])) k++
-            while (k + 1 < c.size && (c[k] == '-'.code || c[k] == '\''.code || c[k] == '’'.code) && Py.isWord(c[k + 1])) {
+            while (k + 1 < c.size && (c[k] == '-'.code || c[k] == '\''.code || c[k] == '’'.code ||
+                    c[k] == '׳'.code || c[k] == '״'.code) && Py.isWord(c[k + 1])
+            ) {
                 k++
                 while (k < c.size && Py.isWord(c[k])) k++
             }
+            if (k < c.size && c[k] == '׳'.code) k++
             out.add(Py.str(c, start, k))
         }
         return out
@@ -142,25 +149,35 @@ class GuardPyPort : OutputGuard {
         return m
     }
 
-    private fun letters(s: String): Pair<Int, Int> {
+    private fun letters(s: String): Triple<Int, Int, Int> {
         var lat = 0
         var cyr = 0
+        var heb = 0
         s.codePoints().forEach {
             if (Py.lowerIsAsciiLetter(it)) lat++
             if (Py.isCyrillic(it)) cyr++
+            if (Py.isHebrew(it)) heb++
         }
-        return lat to cyr
+        return Triple(lat, cyr, heb)
     }
 
     /**
-     * guard.phonetic_key. Python drops combining marks after NFKD; here they fall out with every other character
-     * outside [a-z0-9] a step later, which gives the same key (no combining mark is a Cyrillic letter or ASCII).
+     * guard.phonetic_key. NFKD + strip combining marks, then Hebrew digraphs, then Cyrillic/Hebrew transliteration
+     * and ASCII filter, then English phonetic rules, vowel fold and dedup.
      */
     fun phoneticKey(s: String): String {
         val nfkd = Normalizer.normalize(Py.casefold(s), Normalizer.Form.NFKD)
-        val b = StringBuilder(nfkd.length)
-        nfkd.codePoints().forEach { cp ->
-            val tr = if (cp in 0x430..0x44F || cp == 0x451) TR[cp] else null
+        var cleaned = buildString(nfkd.length) {
+            nfkd.codePoints().forEach { cp ->
+                if (!Py.isHebrewMark(cp) && Character.getType(cp) != Character.NON_SPACING_MARK.toInt()) {
+                    appendCodePoint(cp)
+                }
+            }
+        }
+        for ((x, y) in HEB_DIGRAPHS) cleaned = cleaned.replace(x, y)
+        val b = StringBuilder(cleaned.length)
+        cleaned.codePoints().forEach { cp ->
+            val tr = TR[cp]
             if (tr != null) b.append(tr)
             else if (cp in 'a'.code..'z'.code || cp in '0'.code..'9'.code) b.appendCodePoint(cp)
         }
@@ -236,8 +253,13 @@ class GuardPyPort : OutputGuard {
     }
 
     private fun script(w: String): String {
-        val (lat, cyr) = letters(w)
-        return if (lat > cyr) "lat" else if (cyr > lat) "cyr" else ""
+        val (lat, cyr, heb) = letters(w)
+        return when {
+            lat > cyr && lat > heb -> "lat"
+            cyr > lat && cyr > heb -> "cyr"
+            heb > lat && heb > cyr -> "heb"
+            else -> ""
+        }
     }
 
     /** guard._translated_span (R5b). */
@@ -250,7 +272,7 @@ class GuardPyPort : OutputGuard {
         val oset = ow.toSet()
         val ok1 = ow.map { phoneticKey(it) }
         val okeys = ok1 + ok1.zipWithNext { a, b -> a + b }
-        for ((src, dst) in listOf("lat" to "cyr", "cyr" to "lat")) {
+        for ((src, dst) in listOf("lat" to "cyr", "cyr" to "lat", "lat" to "heb", "heb" to "lat", "cyr" to "heb", "heb" to "cyr")) {
             val lost = tw.filter { w ->
                 script(w) == src && w !in oset && (okeys.maxOfOrNull { sim(phoneticKey(w), it) } ?: 0.0) < SPAN_KEEP_SIM
             }
@@ -261,10 +283,11 @@ class GuardPyPort : OutputGuard {
     }
 
     companion object {
-        const val GUARD_VERSION = "guard.v1.1"
+        const val GUARD_VERSION = "guard.v1.2"
 
         val FILLERS: Set<String> = """э ээ эээ э-э э-э-э м мм ммм м-м хм гм а-а ну эм ам
-um uh uhm uh-huh erm er hmm hm mm mmm ah eh""".split(' ', '\n').filter { it.isNotEmpty() }.toSet()
+um uh uhm uh-huh erm er hmm hm mm mmm ah eh
+אה אהה אההה אה-אה אמ אממ אמממ כאילו המ הממ""".split(' ', '\n').filter { it.isNotEmpty() }.toSet()
 
         private const val GROW_K = 1.5
         private const val GROW_ADD = 4
@@ -290,22 +313,27 @@ um uh uhm uh-huh erm er hmm hm mm mmm ah eh""".split(' ', '\n').filter { it.isNo
         private fun ci(pattern: String, flags: Int = 0): Pattern = Pattern.compile(Py.ignoreCase(pattern), flags or Pattern.UNIX_LINES)
 
         private val HALLU_FULL = ci(
-            "^(?:\\[?$S*(?:blank_audio|silence|music|музыка|тишина|аплодисменты|смех)$S*\\]?|" +
-                "\\(?$S*(?:music|музыка)$S*\\)?|" +
+            "^(?:\\[?$S*(?:blank_audio|silence|music|музыка|тишина|аплодисменты|смех|מוזיקה|שקט|מחיאות כפיים|צחוק)$S*\\]?|" +
+                "\\(?$S*(?:music|музыка|מוזיקה)$S*\\)?|" +
                 "thanks? (?:you )?for watching!?|thank you for watching!?|please subscribe.*|" +
                 "продолжение следует\\.*|спасибо за просмотр!?|подписывайтесь на канал.*|" +
                 "субтитры (?:сделал|делал|создавал|подготовил)$W*$S.*|редактор субтитров$S.*|" +
-                "корректор$S+$NS+\\.$S*$NS+|dimatorzok)$",
+                "корректор$S+$NS+\\.$S*$NS+|dimatorzok|" +
+                "תודה (?:רבה )?שצפיתם!?|תודה על הצפייה!?|הירשמו לערוץ.*|תרשמו לערוץ.*|" +
+                "המשך יבוא\\.*|כתוביות.*|עריכת כתוביות$S.*)$",
         )
         private val HALLU_TAIL = ci(
             "(?:(?<=[.!?…])$S*|$S+)(?:продолжение следует\\.*|субтитры (?:сделал|делал|создавал|подготовил)$W*$S.*|" +
-                "редактор субтитров$S.*|thanks? for watching!?|thank you for watching!?|\\[blank_audio\\])$S*$",
+                "редактор субтитров$S.*|thanks? for watching!?|thank you for watching!?|\\[blank_audio\\]|" +
+                "תודה (?:רבה )?שצפיתם!?|תודה על הצפייה!?|המשך יבוא\\.*|" +
+                "כתוביות$S*(?::|על ידי|ע״י|ע\"י|מאת|נוצרו).*|עריכת כתוביות$S.*)$S*$",
         )
         private val THINK = Pattern.compile("<think>.*?</think>$S*|^.*?</think>$S*", Pattern.DOTALL)
         private val CHAT_TOKENS = Pattern.compile("<\\|[a-z_]+\\|>|<\\|im_end\\|>|<\\|endoftext\\|>")
         private val LABEL = ci(
             "^$S*(?:output|edited text|edited|result|corrected text|text|вывод|результат|текст|" +
-                "исправленный текст|отредактированный текст)$S*:$S*",
+                "исправленный текст|отредактированный текст|" +
+                "טקסט מתוקן|טקסט ערוך|טקסט|תוצאה|פלט)$S*:$S*",
         )
         private val LEAK = ci(
             "</?(?:context|transcript|preferences)>|^$S*Style:|<\\|im_|<think|Names and terms on screen|" +
@@ -317,18 +345,25 @@ um uh uhm uh-huh erm er hmm hm mm mmm ah eh""".split(' ', '\n').filter { it.isNo
         private val PREAMBLE = ci(
             "^$S*(?:sure$B|certainly$B|of course$B|here is$B|here's$B|here are$B|okay, here$B|i'm sorry$B|i cannot$B|" +
                 "as an ai$B|конечно[,!]|вот (?:исправленный|ваш|отредактированный|готовый)|исправленный текст|" +
-                "отредактированный текст|извините, (?:я|но)|я не могу$B)",
+                "отредактированный текст|извините, (?:я|но)|я не могу$B|" +
+                "בטח$B|בוודאי$B|כמובן$B|הנה (?:הטקסט|הגרסה)|טקסט מתוקן|אני מצטער[,!]|אני לא יכול$B)",
         )
         private val CHAR_LOOP = Pattern.compile("(.{1,6}?)\\1{7,}", Pattern.DOTALL)
         private val FENCE = Pattern.compile("^```$W*\\n?|\\n?```$", Pattern.UNIX_LINES)
         private val SPAN_SPLIT = Pattern.compile("[-_'’]")
         private val QUOTE_PAIRS = mapOf('"' to '"', '«' to '»', '“' to '”', '\'' to '\'', '`' to '`')
 
-        private val TR: Map<Int, String> = run {
-            val src = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
-            val dst = listOf("a", "b", "v", "g", "d", "e", "e", "zh", "z", "i", "i", "k", "l", "m", "n", "o", "p", "r", "s",
+        private val HEB_DIGRAPHS = listOf("וו" to "v", "ג׳" to "j", "ג'" to "j", "צ׳" to "ch", "צ'" to "ch")
+        private val TR: Map<Int, String> = buildMap {
+            val cyrSrc = "абвгдеёжзийклмнопрстуфхцчшщъыьэюя"
+            val cyrDst = listOf("a", "b", "v", "g", "d", "e", "e", "zh", "z", "i", "i", "k", "l", "m", "n", "o", "p", "r", "s",
                 "t", "u", "f", "h", "ts", "ch", "sh", "sch", "", "y", "", "e", "yu", "ya")
-            src.indices.associate { src[it].code to dst[it] }
+            for (i in cyrSrc.indices) put(cyrSrc[i].code, cyrDst[i])
+            val hebSrc = "אבגדהוזחטיךכלםמןנסעףפץצקרשת"
+            val hebDst = listOf("a", "b", "g", "d", "", "u", "z", "k", "t", "i",
+                "k", "k", "l", "m", "m", "n", "n", "s", "a", "f",
+                "p", "ts", "ts", "k", "r", "sh", "t")
+            for (i in hebSrc.indices) put(hebSrc[i].code, hebDst[i])
         }
         private val PHON = listOf("sch" to "sh", "ph" to "f", "ck" to "k", "qu" to "kv", "w" to "v", "th" to "t", "x" to "ks",
             "c" to "k", "y" to "i", "j" to "dj", "q" to "k", "ou" to "au", "ee" to "i", "oo" to "u", "h" to "")

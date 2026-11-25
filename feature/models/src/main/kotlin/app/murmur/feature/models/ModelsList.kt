@@ -286,7 +286,8 @@ internal fun ModelRowView(
             FlowRow(Modifier.padding(top = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.units.forEach { UnitBadgeView(it.unit, it.chosen) }
                 row.languages.forEach { MurmurBadge(it, BadgeKind.Language) }
-                if (row.noRussian) NoRussianBadge()
+                if (row.noRussian && (row.missingLanguages.isEmpty() || "ru" in row.missingLanguages)) NoRussianBadge()
+                if ("he" in row.missingLanguages) MurmurBadge(stringResource(R.string.models_no_hebrew), BadgeKind.NoRussian)
             }
             RowExtra(row)
         }

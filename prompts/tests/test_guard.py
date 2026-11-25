@@ -177,5 +177,108 @@ class Phonetic(unittest.TestCase):
         self.assertFalse(g.spoken("PagerDuty", "about the data dog alert"))
 
 
+class Hebrew(unittest.TestCase):
+    def v(self, tr, out, c=TG):
+        return g.guard(tr, out, c)
+
+    def test_precheck_hebrew_fillers_and_hallucinations(self):
+        for t in ["אממ", "אהה...", "אמ כאילו אה", "כאילו", "תודה שצפיתם!", "תודה רבה שצפיתם",
+                  "כתוביות על ידי צוות התרגום", "כתוביות: דני", "[מוזיקה]", "(מוזיקה)", "[שקט]",
+                  "הירשמו לערוץ שלנו", "המשך יבוא..."]:
+            self.assertTrue(g.precheck(t).skip, t)
+        for t in ["כן בטח", "תודה", "אם אתה פנוי", "הם מגיעים מחר"]:
+            p = g.precheck(t)
+            self.assertFalse(p.skip, t)
+            self.assertEqual(p.transcript, t)
+        p = g.precheck("אני מגיע בעוד עשר דקות. תודה שצפיתם!")
+        self.assertEqual((p.skip, p.transcript, p.reason), (False, "אני מגיע בעוד עשר דקות.", "tail_removed"))
+        p2 = g.precheck("נדבר מחר בבוקר. כתוביות: צוות עריכה")
+        self.assertEqual((p2.skip, p2.transcript, p2.reason), (False, "נדבר מחר בבוקר.", "tail_removed"))
+
+    def test_repair_hebrew_labels(self):
+        self.assertEqual(g.repair("טקסט מתוקן: שלום עולם.", "שלום עולם"), "שלום עולם.")
+        self.assertEqual(g.repair("תוצאה: נדבר מחר.", "נדבר מחר"), "נדבר מחר.")
+        self.assertEqual(g.repair("פלט: הכל מוכן.", "הכל מוכן"), "הכל מוכן.")
+
+    def test_r3_hebrew_preamble(self):
+        self.assertEqual(self.v("איך מאפסים סיסמה", "בטח! כדי לאפס סיסמה פתח את ההגדרות.").reason, "R3_preamble")
+        self.assertEqual(self.v("איך מאפסים סיסמה", "הנה הטקסט המתוקן: איך מאפסים סיסמה?").reason, "R3_preamble")
+        # spoken "בטח" in transcript is not an LLM preamble
+        self.assertEqual(self.v("בטח אני אגיע בשש", "בטח, אני אגיע ב-6.").action, "accept")
+
+    def test_tokenization_niqqud_geresh_gershayim(self):
+        self.assertEqual(g._words("שָׁלוֹם עוֹלָם"), ["שלום", "עולם"])
+        self.assertEqual(g._words("ד״ר כהן משרת בצה״ל"), ["ד״ר", "כהן", "משרת", "בצה״ל"])
+        self.assertEqual(g._words("ג׳אווה ובראנץ׳ א׳ ג׳"), ["ג׳אווה", "ובראנץ׳", "א׳", "ג׳"])
+        self.assertEqual(g.phonetic_key("שָׁלוֹם"), g.phonetic_key("שלום"))
+
+    def test_phonetic_hebrew_transliterations(self):
+        self.assertEqual(g.phonetic_key("גיטהאב"), g.phonetic_key("GitHub"))
+        self.assertEqual(g.phonetic_key("סלאק"), g.phonetic_key("Slack"))
+        self.assertEqual(g.phonetic_key("וואטסאפ"), g.phonetic_key("WhatsApp"))
+        self.assertEqual(g.phonetic_key("פייתון"), g.phonetic_key("Python"))
+        self.assertTrue(g.spoken("Java", "אני כותב בג׳אווה"))
+        self.assertTrue(g.spoken("GitHub", "עשיתי פוש לגיטהאב"))
+        self.assertTrue(g.spoken("ClickHouse", "תבדוק גישה לקליק האוס"))
+        self.assertTrue(g.spoken("Kubernetes", "דיפלוי על קוברנטיס"))
+        self.assertTrue(g.spoken("Docker", "הרצתי את זה בדוקר"))
+        self.assertFalse(g.spoken("PagerDuty", "נדבר על פגישה מחר בבוקר"))
+
+    def test_r5_and_r5b_hebrew_translation_caught(self):
+        # full Hebrew -> English translation
+        self.assertEqual(self.v("אני מאחר בחצי שעה מצטער מאוד", "I'll be half an hour late, really sorry.").reason,
+                         "R5_script")
+        # full English -> Hebrew translation
+        self.assertEqual(self.v("i will be half an hour late sorry", "אני אאחר בחצי שעה, מצטער.").reason,
+                         "R5_script")
+        # full Hebrew -> Russian translation
+        self.assertEqual(self.v("אני מאחר בחצי שעה מצטער מאוד", "Я опоздаю на полчаса, очень извиняюсь.").reason,
+                         "R5_script")
+        # vanished Hebrew span in mixed Hebrew+Russian (R5)
+        self.assertEqual(self.v("привет אני מאחר קצת на встречу",
+                                "Привет, я немного опоздаю на встречу.").reason, "R5_script")
+        # partial mixed Hebrew+English span translated to Hebrew (R5b)
+        self.assertEqual(self.v("בוא נדבר על זה offline after the meeting",
+                                "בוא נדבר על זה offline אחרי הפגישה.").reason, "R5b_translated_span")
+        # partial mixed Hebrew+Russian span translated to Russian while Hebrew still present (R5b)
+        self.assertEqual(self.v("привет אני מאחר היום בבוקר на встречу",
+                                "Привет, אני מאחר сегодня на встречу.").reason, "R5b_translated_span")
+
+    def test_hebrew_code_switching_accepted(self):
+        cases = [
+            ("אממ כאילו עשיתי פוש לגיטהאב בשלוש לא בעצם בארבע ושלחתי לינק בסלאק",
+             "עשיתי push ל-GitHub ב-4 ושלחתי לינק ב-Slack."),
+            ("ד״ר לוי שלח עדכון מצה״ל לגבי הפרויקט",
+             "ד״ר לוי שלח עדכון מצה״ל לגבי הפרויקט."),
+            ("תבדוק את הלוגים בקיבאנה ובלוקי עם דוקר",
+             "תבדוק את הלוגים ב-Kibana וב-Loki עם Docker."),
+            ("שָׁלוֹם מה נשמע היום בבוקר",
+             "שלום, מה נשמע היום בבוקר?"),
+        ]
+        for tr, out in cases:
+            self.assertEqual(self.v(tr, out).action, "accept", (tr, out, self.v(tr, out)))
+
+    def test_r6_and_r7_hebrew(self):
+        # R6 novel hallucinated Hebrew content (within R4 length limits, >50% novel content words)
+        self.assertEqual(self.v("מה הבירה של אוסטרליה",
+                                "הבירה של אוסטרליה היא קנברה, עיר מתוכננת ויפה.").reason,
+                         "R6_novel")
+        # R7 distractor from Hebrew OCR screen (unrelated term inserted + near-miss rival swap)
+        c = ctx(v=2, app={"package": "test.app", "category": "messaging"}, screen={"size": [1080, 2520], "lines": [
+            {"text": "תבדוק את ClickHouse וגם INV-0093", "conf": 0.95, "box": [52, 300, 900, 348]},
+        ]})
+        self.assertEqual(g.guard("תעביר את החשבון לדני", "תעביר את החשבון INV-0093 לדני.", c).reason,
+                         "R7_distractor")
+        self.assertEqual(g.guard("תבדוק את הקליק האוס בבקשה", "תבדוק את ClickHouse בבקשה.", c).action,
+                         "accept")
+        c2 = ctx(v=2, app={"package": "test.app", "category": "messaging"}, screen={"size": [1080, 2520], "lines": [
+            {"text": "פגישה על GitHub וגם GitLab", "conf": 0.95, "box": [52, 300, 900, 348]},
+        ]})
+        self.assertEqual(g.guard("עשיתי פוש לגיטהאב", "עשיתי פוש ל-GitLab.", c2).reason,
+                         "R7_distractor")
+        self.assertEqual(g.guard("עשיתי פוש לגיטהאב", "עשיתי פוש ל-GitHub.", c2).action,
+                         "accept")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -43,7 +43,7 @@ class PacksTest {
         for (o in listOf(foldRec, emuRec)) {
             assertTrue(ArtifactId("silero-vad-v5@onnx") in o.artifacts)
             assertTrue(ArtifactId("pp-ocrv6-tiny-det@onnx") in o.artifacts)
-            assertTrue(ArtifactId("pp-ocrv5-cyrillic-mobile-rec@onnx") in o.artifacts)
+            assertTrue(ArtifactId("pp-ocrv5-ru-en-he-mobile-rec@onnx") in o.artifacts)
             assertEquals(ModelId("murmur-cleanup-qwen3.5-2b"), o.llm?.id)
             assertEquals(o.plan.sumOf { it.artifact.downloadBytes }, o.totalBytes)
             assertEquals("nothing installed yet", o.totalBytes, o.remainingBytes)
@@ -86,6 +86,30 @@ class PacksTest {
         assertEquals(CleanupChoice.None, PackPlanner.applyChoice(Settings(), opts.first { it.pack.id == "speech-only" }).cleanup)
         assertEquals("recommended", PackPlanner.defaultChoice(opts)?.pack?.id)
         assertEquals("light", PackPlanner.defaultChoice(opts.filter { !it.pack.recommended })?.pack?.id)
+    }
+
+    @Test
+    fun enablingHebrewHidesLightPackAndIncludesHebrewAsrAndQwen2b() {
+        val base = PackPlanner.options(catalog, emulator, Settings())
+        val heSettings = Settings(languages = listOf("ru", "en", "he"))
+        val heOpts = PackPlanner.options(catalog, emulator, heSettings)
+        assertEquals(listOf("recommended", "speech-only"), heOpts.map { it.pack.id })
+        val rec = heOpts.first { it.pack.id == "recommended" }
+        val speech = heOpts.first { it.pack.id == "speech-only" }
+        val heArt = ArtifactId("zipformer2-66m-streaming-he@onnx-int8")
+        assertEquals(ModelId("zipformer2-66m-streaming-he"), rec.hebrewAsr?.id)
+        assertEquals(ModelId("zipformer2-66m-streaming-he"), speech.hebrewAsr?.id)
+        assertEquals(ModelId("girgur-cleanup-qwen3.5-2b"), rec.llm?.id)
+        assertNull(speech.llm)
+        assertTrue(heArt in rec.artifacts)
+        assertTrue(heArt in speech.artifacts)
+        assertEquals(
+            base.first { it.pack.id == "speech-only" }.totalBytes + bytes("zipformer2-66m-streaming-he@onnx-int8"),
+            speech.totalBytes,
+        )
+        val applied = PackPlanner.applyChoice(heSettings, rec)
+        assertEquals(ModelId("zipformer2-66m-streaming-he"), applied.hebrewAsrModel)
+        assertEquals(CleanupChoice.Model(ModelId("girgur-cleanup-qwen3.5-2b")), applied.cleanup)
     }
 
     @Test

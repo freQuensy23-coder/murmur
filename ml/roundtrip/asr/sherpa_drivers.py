@@ -121,7 +121,7 @@ class SherpaDriver(AsrDriver):
 
     # ---------------------------------------------------------------- inference
     def _whisper_lang(self, lang_hint: str) -> str:
-        if lang_hint in ("ru", "en"):
+        if lang_hint in ("ru", "en", "he"):
             return lang_hint
         return ""  # sherpa-onnx whisper: empty language = auto-detect
 

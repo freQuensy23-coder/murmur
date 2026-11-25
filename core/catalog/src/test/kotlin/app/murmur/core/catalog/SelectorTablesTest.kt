@@ -130,7 +130,7 @@ class SelectorTablesTest {
         val pack = catalog.packs.single { it.id == "recommended" }
         val plan = DownloadPlanner.forPack(catalog, pack, emu, useScreen = true)
         assertEquals(
-            listOf("parakeet-tdt-0.6b-v3@onnx-int8", "silero-vad-v5@onnx", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-cyrillic-mobile-rec@onnx", "murmur-cleanup-qwen3.5-2b@q4_0"),
+            listOf("parakeet-tdt-0.6b-v3@onnx-int8", "silero-vad-v5@onnx", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-ru-en-he-mobile-rec@onnx", "murmur-cleanup-qwen3.5-2b@q4_0"),
             plan.map { it.artifact.id.value },
         )
         // One artifact per model.
@@ -141,11 +141,11 @@ class SelectorTablesTest {
     fun packOnFold7QueuesTheNpuBuildAndOcrFollowsUseScreen() {
         val speechOnly = catalog.packs.single { it.id == "speech-only" }
         val on = DownloadPlanner.forPack(catalog, speechOnly, fold, useScreen = true)
-        assertEquals(listOf(pNpu.value, "silero-vad-v5@onnx", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-cyrillic-mobile-rec@onnx"), on.map { it.artifact.id.value })
+        assertEquals(listOf(pNpu.value, "silero-vad-v5@onnx", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-ru-en-he-mobile-rec@onnx"), on.map { it.artifact.id.value })
         assertEquals(PlannedDownload.Reason.OCR_PAIR, on.last().reason)
         val recommendedOff = DownloadPlanner.forPack(catalog, catalog.packs.single { it.id == "recommended" }, fold, useScreen = false)
         assertTrue(recommendedOff.none { it.artifact.runtime.startsWith("ort/ppocr") })
-        assertEquals(listOf("pp-ocrv6-tiny-det@onnx", "pp-ocrv5-cyrillic-mobile-rec@onnx"), DownloadPlanner.ocrPair(catalog, fold).map { it.artifact.id.value })
+        assertEquals(listOf("pp-ocrv6-tiny-det@onnx", "pp-ocrv5-ru-en-he-mobile-rec@onnx"), DownloadPlanner.ocrPair(catalog, fold).map { it.artifact.id.value })
     }
 
     @Test

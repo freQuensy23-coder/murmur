@@ -35,6 +35,17 @@ class BubbleMappingTest {
     }
 
     @Test
+    fun listeningAndFinishingExposeHebrewAvailabilityAndActiveState() {
+        val hePlan = plan.copy(hebrewAvailable = true, hebrewSpeechMeasured = false)
+        val listening = BubbleMapping.of(DictationState.Listening(s, StartMode.TAP, 100, hePlan, EngineStatus(), hebrewActive = true))
+        assertEquals(DictationBubble.Listening(100, hold = false, warn = false, hebrewAvailable = true, hebrewActive = true), listening)
+        val holdListening = BubbleMapping.of(DictationState.Listening(s, StartMode.HOLD, 100, hePlan, EngineStatus(), hebrewActive = false))
+        assertEquals(DictationBubble.Listening(100, hold = true, warn = false, hebrewAvailable = false, hebrewActive = false), holdListening)
+        val finishing = BubbleMapping.of(DictationState.Finishing(s, StartMode.TAP, 100, 3_100, hePlan, EngineStatus(), hebrewActive = true))
+        assertEquals(DictationBubble.Listening(100, hold = false, warn = false, frozenAtMs = 3_100, hebrewAvailable = false, hebrewActive = true), finishing)
+    }
+
+    @Test
     fun deliveringShowsThePreviousWorkingBubble() {
         assertEquals(DictationBubble.Polishing, BubbleMapping.of(DictationState.Delivering(s, 7_000, "x", cleaned = true, shownAs = DictationBubble.Polishing)))
         val listening = DictationBubble.Listening(1_000, hold = false, warn = false, frozenAtMs = 7_000)

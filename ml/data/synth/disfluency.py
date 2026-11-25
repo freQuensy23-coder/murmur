@@ -19,16 +19,19 @@ import re
 
 from ml.common import text as T
 
-HES = {"ru": ["э", "э-э", "эм", "м-м", "ээ"], "en": ["um", "uh", "uhm", "er", "hmm"]}
+HES = {"ru": ["э", "э-э", "эм", "м-м", "ээ"], "en": ["um", "uh", "uhm", "er", "hmm"],
+       "he": ["אממ", "אמ", "אהה", "אה", "הממ", "ממ"]}
 FILLERS = {"ru": ["ну", "вот", "короче", "типа", "как бы", "в общем", "значит", "это самое"],
-           "en": ["so", "like", "you know", "I mean", "basically"]}
-START_FILLERS = {"ru": ["ну", "короче", "в общем", "значит", "ну вот"], "en": ["so", "um so", "so like"]}
+           "en": ["so", "like", "you know", "I mean", "basically"],
+           "he": ["כאילו", "בעצם", "יעני", "נו", "אז", "בקיצור", "כזה"]}
+START_FILLERS = {"ru": ["ну", "короче", "в общем", "значит", "ну вот"], "en": ["so", "um so", "so like"],
+                 "he": ["אז", "נו", "בקיצור", "כאילו", "טוב אז", "אממ"]}
 FULL_RENDER = {"hesitation_keep": 1.0, "repeat_keep": 1.0}
 _TOK = re.compile(r"\S+")
 
 
 def _lang_of(tok: str, default: str) -> str:
-    return "ru" if T.is_cyr(tok) else ("en" if T.is_lat(tok) else default)
+    return "he" if T.is_heb(tok) else ("ru" if T.is_cyr(tok) else ("en" if T.is_lat(tok) else default))
 
 
 def inject(spoken: str, lang: str, messiness: float, r: random.Random, sounds_only: bool = False,
@@ -41,7 +44,7 @@ def inject(spoken: str, lang: str, messiness: float, r: random.Random, sounds_on
     if messiness <= 0 or not spoken.strip():
         return spoken, []
     toks = _TOK.findall(spoken)
-    base = "en" if lang == "en" else "ru"
+    base = "he" if lang in ("he", "he_en", "he_ru") else ("en" if lang == "en" else "ru")
     ops: list = []
     n = len(toks)
     budget = max(1, round(messiness * (1 + n / 7)))
@@ -81,7 +84,8 @@ def inject(spoken: str, lang: str, messiness: float, r: random.Random, sounds_on
         out.append(tok)
         # stutter / repetition of a short word (не "не не": negation doubling can change meaning)
         if (budget > 0 and not sounds_only and word and len(word) <= 6 and word.lower() not in T.NEGATIONS_RU
-                and word.lower() not in T.NEGATIONS_EN and not re.search(r"\W$", tok) and r.random() < 0.07 * messiness):
+                and word.lower() not in T.NEGATIONS_EN and word not in T.NEGATIONS_HE
+                and not re.search(r"\W$", tok) and r.random() < 0.07 * messiness):
             op = {"op": "repeat", "text": word, "at": i}
             if rr.random() >= rd["repeat_keep"]:
                 op["suppressed"] = True

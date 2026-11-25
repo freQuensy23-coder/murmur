@@ -260,7 +260,7 @@ private fun DetailBody(s: DetailUiState, mode: TextMode, onMode: (TextMode) -> U
                 val description = WordDiff.description(s.diff, added, removed, none)
                 MarkedText(
                     annotated, marks, style = readingStyle, color = c.ink,
-                    modifier = Modifier.padding(top = textTop).testTag(HistoryTags.DIFF).clearAndSetSemantics { contentDescription = description },
+                    modifier = Modifier.fillMaxWidth().padding(top = textTop).testTag(HistoryTags.DIFF).clearAndSetSemantics { contentDescription = description },
                 )
                 if (WordDiff.hasChanges(s.diff)) DiffLegend(added, removed) else {
                     Text(none, style = t.rowSub, color = c.ink3, modifier = Modifier.padding(top = 12.dp))
@@ -270,7 +270,7 @@ private fun DetailBody(s: DetailUiState, mode: TextMode, onMode: (TextMode) -> U
                 val text = if (mode == TextMode.ORIGINAL || entry.finalText.isNullOrBlank()) entry.rawText.orEmpty() else entry.finalText.orEmpty()
                 MarkedText(
                     AnnotatedString(text), emptyList(), style = readingStyle, color = c.ink, selectable = true,
-                    modifier = Modifier.padding(top = textTop).testTag(HistoryTags.READING),
+                    modifier = Modifier.fillMaxWidth().padding(top = textTop).testTag(HistoryTags.READING),
                 )
             }
         }

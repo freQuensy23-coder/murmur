@@ -106,11 +106,12 @@ async function main() {
            '--disable-font-subpixel-positioning', '--hide-scrollbars', '--no-sandbox'],
   });
   const ctxs = new Map();
-  async function pageFor(cw, ch, dsf) {
-    const k = `${cw}x${ch}@${dsf}`;
+  async function pageFor(cw, ch, dsf, loc) {
+    const bcp = (loc === 'he' || loc === 'he-IL') ? 'he-IL' : 'ru-RU';
+    const k = `${cw}x${ch}@${dsf}@${bcp}`;
     if (!ctxs.has(k)) {
       const c = await browser.newContext({ viewport: { width: cw, height: ch }, deviceScaleFactor: dsf,
-        reducedMotion: 'reduce', javaScriptEnabled: true, offline: true, locale: 'ru-RU', timezoneId: 'UTC' });
+        reducedMotion: 'reduce', javaScriptEnabled: true, offline: true, locale: bcp, timezoneId: 'UTC' });
       const p = await c.newPage();
       ctxs.set(k, p);
     }
@@ -123,7 +124,7 @@ async function main() {
     try {
       req = JSON.parse(line);
       const dsf = req.w / req.css_w;
-      const page = await pageFor(req.css_w, req.css_h, dsf);
+      const page = await pageFor(req.css_w, req.css_h, dsf, req.locale);
       await page.goto('file://' + req.html, { waitUntil: 'load' });
       await page.evaluate(() => document.fonts.ready);
       const vis = await page.evaluate(collectVisible);

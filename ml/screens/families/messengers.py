@@ -59,7 +59,7 @@ def _bubbles(c: Ctx, palette: dict, group: bool, tails: bool) -> str:
             f'<div class="row" style="justify-content:{"flex-end" if me else "flex-start"};margin:3px 8px;align-items:flex-end">{av}'
             f'<div style="max-width:{"78%" if not c.wide else "70%"};background:{bg};color:{palette["text_out" if me else "text_in"]};'
             f'border-radius:{radius};padding:6px 10px 6px 11px;box-shadow:0 1px 1px rgba(0,0,0,.12)">'
-            f'{author}<div style="white-space:pre-wrap;word-break:break-word" data-role="{role}">{e(m["text"])}{meta}</div>'
+            f'{author}<div{" dir=\"rtl\"" if any("\u05d0" <= ch <= "\u05ea" for ch in m["text"]) else ""} style="white-space:pre-wrap;word-break:break-word" data-role="{role}">{e(m["text"])}{meta}</div>'
             f'{prev}{react}</div></div>')
     return "".join(out)
 
@@ -194,10 +194,11 @@ def work_chat(c: Ctx) -> str:
             extra = (f'<div style="margin-top:6px;border-left:4px solid var(--divider);padding-left:10px;font-size:{C.fs(15)}" '
                      f'data-role="snippet">{e(snips.pop(0))}</div>')
         if c.r.random() < 0.2:
+            rep_lbl = "ответа" if c.locale == "ru" else "תגובות" if c.locale == "he" else "replies"
             extra += (f'<div style="margin-top:6px;color:var(--accent);font-size:{C.fs(14)};font-weight:600" data-role="chrome">'
-                      f'{c.r.randint(2, 9)} {"ответа" if c.locale == "ru" else "replies"}</div>')
+                      f'{c.r.randint(2, 9)} {rep_lbl}</div>')
         rows.append(f'<div class="row" style="align-items:flex-start;gap:10px;padding:{"2" if cont else "8"}px 14px 2px">{av}'
-                    f'<div class="grow col">{head_html}<div style="white-space:pre-wrap;word-break:break-word" data-role="message">'
+                    f'<div class="grow col">{head_html}<div{" dir=\"rtl\"" if any("\u05d0" <= ch <= "\u05ea" for ch in m["text"]) else ""} style="white-space:pre-wrap;word-break:break-word" data-role="message">'
                     f'{e(m["text"])}</div>{extra}</div></div>')
     for s in snips:
         rows.append(f'<div style="margin:6px 14px 0 62px;padding:8px 10px;border:1px solid var(--divider);border-radius:8px;'
@@ -227,5 +228,5 @@ def work_chat(c: Ctx) -> str:
             f'<div style="padding:14px 16px;font-size:{C.fs(18)};font-weight:700" data-role="chrome">'
             f'{e(c.r.choice(["Team", "Acme", "Studio", "Команда", "Отдел"]))}</div>{items}'
             f'<div style="padding:14px 16px 4px;opacity:.8;font-size:{C.fs(14)}" data-role="chrome">'
-            f'{"Личные сообщения" if c.locale == "ru" else "Direct messages"}</div>{dms}</div>')
+            f'{"Личные сообщения" if c.locale == "ru" else "הודעות ישירות" if c.locale == "he" else "Direct messages"}</div>{dms}</div>')
     return frame(c, f'<div class="row grow" style="align-items:stretch;overflow:hidden">{side}<div class="col grow">{body}</div></div>')

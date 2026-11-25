@@ -3,8 +3,8 @@ package app.murmur.platform.overlay
 import kotlin.math.hypot
 import kotlin.math.max
 
-/** Where a touch went down: the bubble body, the Error pill's action button, or the cancel circle above Listening. */
-enum class TouchRegion { BODY, ACTION, CANCEL }
+/** Where a touch went down: the bubble body, the Error pill's action button, the cancel circle, or the עב toggle above Listening. */
+enum class TouchRegion { BODY, ACTION, CANCEL, HEBREW }
 
 /** What the bubble's touch stream means (DESIGN 5.3 "Enters when / Leaves when"). Coordinates are screen pixels. */
 sealed interface Gesture {

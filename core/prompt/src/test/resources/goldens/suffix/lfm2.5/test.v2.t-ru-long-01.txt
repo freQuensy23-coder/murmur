@@ -4,10 +4,9 @@ App: Gmail — email body
 Field hint: «Текст письма»
 Dictation language: Russian
 Screen text (OCR, nearest to the field first):
-1 ноября, Андрей Воронин пишет:
 Re: Миграция: статус
 Тема
-Привет! Как там миграция?
+1 ноября, Андрей Воронин пишет: Привет! Как там миграция?
 Кому
 AB
 Андрей Воронин

@@ -36,7 +36,7 @@ def _note_editor(c: Ctx, bg: str) -> str:
             f'<div class="iconbtn">{C.icon("star")}</div><div class="iconbtn">{C.icon("bell")}</div><div class="iconbtn">{C.icon("inbox")}</div></div>')
     title = (f'<div style="font-size:{C.fs(22)};padding:4px 18px 8px;font-weight:400" data-role="title">{e(c.title)}</div>'
              if c.title else f'<div style="font-size:{C.fs(22)};padding:4px 18px 8px" class="t3" data-role="hint">'
-                             f'{"Название" if c.locale == "ru" else "Title"}</div>')
+                             f'{"Название" if c.locale == "ru" else "כותרת" if c.locale == "he" else "Title"}</div>')
     after = "".join(f'<div style="white-space:pre-wrap;word-break:break-word;margin-top:10px" data-role="message">{e(m["text"])}</div>'
                     for m in c.messages)
     tags = ""
@@ -48,7 +48,7 @@ def _note_editor(c: Ctx, bg: str) -> str:
             tags = '<div class="row" style="gap:8px;flex-wrap:wrap;margin-top:14px">' + "".join(
                 f'<span class="chip" style="border-radius:6px;background:rgba(127,127,127,.15);border:none" data-role="snippet">{e(s)}</span>'
                 for s in c.snippets) + "</div>"
-    edited = (f'{"Изменено" if c.locale == "ru" else "Edited"} {c.fill.clock()}')
+    edited = (f'{"Изменено" if c.locale == "ru" else "נערך" if c.locale == "he" else "Edited"} {c.fill.clock()}')
     foot = (f'<div class="row t2" style="padding:6px 12px;gap:16px;background:{bg}">{C.icon("plus")}{C.icon("pen")}'
             f'<span class="grow" style="text-align:center;font-size:{C.fs(12)}" data-role="chrome">{e(edited)}</span>{C.icon("undo")}{C.icon("dots")}</div>')
     text = _cursor_text(c, c.ui["write_note"]) + after
@@ -60,7 +60,7 @@ def _note_editor(c: Ctx, bg: str) -> str:
 
 def _note_list(c: Ctx) -> str:
     cards = []
-    titles = c.fill.pick(F.TASKS_RU + F.EVENTS_RU, F.TASKS_EN + F.EVENTS_EN, 8)
+    titles = c.fill.pick(F.TASKS_RU + F.EVENTS_RU, F.TASKS_EN + F.EVENTS_EN, 8, pool_he=F.TASKS_HE + F.EVENTS_HE)
     lines = c.fill.msgs(8)
     for i in range(min(len(titles), len(lines))):
         bg = c.r.choice(NOTE_BG[c.theme])
@@ -68,7 +68,7 @@ def _note_list(c: Ctx) -> str:
                      f'<div style="font-weight:500" data-role="filler">{e(titles[i])}</div>'
                      f'<div class="t2" style="font-size:{C.fs(14)};margin-top:4px" data-role="filler">{e(lines[i])}</div></div>')
     search = (f'<div style="padding:10px 10px 4px"><div class="row" style="height:46px;border-radius:23px;background:var(--surface);padding:0 14px;gap:12px">'
-              f'{C.icon("menu")}<span class="grow t2" data-role="chrome">{"Поиск по заметкам" if c.locale == "ru" else "Search your notes"}</span></div></div>')
+              f'{C.icon("menu")}<span class="grow t2" data-role="chrome">{"Поиск по заметкам" if c.locale == "ru" else "חיפוש בהערות" if c.locale == "he" else "Search your notes"}</span></div></div>')
     return f'{search}<div class="grow" style="overflow:hidden">{"".join(cards)}</div>'
 
 
@@ -81,7 +81,7 @@ def notes(c: Ctx) -> str:
 
 
 def doc_editor(c: Ctx) -> str:
-    doc = c.title or ("Без названия" if c.locale == "ru" else "Untitled document")
+    doc = c.title or ("Без названия" if c.locale == "ru" else "מסמך ללא כותרת" if c.locale == "he" else "Untitled document")
     head = (f'<div class="appbar"><div class="iconbtn">{C.icon("check")}</div><div class="grow ell t2" style="font-size:{C.fs(15)}" data-role="title">{e(doc)}</div>'
             f'<div class="iconbtn">{C.icon("undo")}</div><div class="iconbtn">{C.icon("chat")}</div><div class="iconbtn">{C.icon("dots")}</div></div>')
     tool = ('<div class="row t2" style="gap:18px;padding:8px 14px;border-top:1px solid var(--divider);border-bottom:1px solid var(--divider)">'
@@ -97,7 +97,7 @@ def doc_editor(c: Ctx) -> str:
     ph = "".join(f'<p style="margin:0 0 12px;white-space:pre-wrap;word-break:break-word" data-role="message">{e(m["text"])}</p>' for m in paras)
     sn = "".join(f'<li style="margin:0 0 6px 20px" data-role="snippet">{e(s)}</li>' for s in c.snippets)
     sn = f'<ul style="margin-bottom:12px">{sn}</ul>' if sn else ""
-    cur = _cursor_text(c, "Введите текст" if c.locale == "ru" else "Type here")
+    cur = _cursor_text(c, "Введите текст" if c.locale == "ru" else "הקלד כאן" if c.locale == "he" else "Type here")
     pagew = "92%" if not c.wide else "62%"
     pg = (f'<div style="background:var(--bg);margin:12px auto;width:{pagew};padding:22px 20px;box-shadow:0 1px 4px rgba(0,0,0,.2);min-height:90%">'
           f'<h1 style="font-size:{C.fs(24)};font-weight:400;margin-bottom:14px" data-role="title">{e(doc)}</h1>{ph}{sn}<p>{cur}</p></div>')

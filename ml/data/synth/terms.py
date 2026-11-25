@@ -43,6 +43,19 @@ WELL_KNOWN = {
     "Google Drive", "Google Meet", "Teams", "Outlook", "Word", "Dropbox", "Bitbucket", "Stack Overflow", "Postman",
     "Swagger", "GraphQL", "gRPC", "WebSocket", "Redux", "Vue", "Angular", "Next.js", "Spring", "Laravel", "Unity",
     "agent", "ETA", "CDN", "Google Play",
+    # 2025-2026 LLMs, coding agents, ML infra & modern dev tools that a smart editor spells right without a screen
+    "Codex", "Claude Code", "Opus", "Sonnet", "Haiku", "Qwen", "Qwen3", "Qwen3.5", "GPT-4o", "GPT-5",
+    "o3", "o3-mini", "o4-mini", "Gemini", "Gemini 2.5", "DeepSeek", "DeepSeek-R1", "Llama", "Llama 4",
+    "Mistral", "Grok", "Perplexity", "Anthropic", "Midjourney", "Sora", "Whisper", "ElevenLabs",
+    "Cursor", "Windsurf", "Devin", "MCP", "LoRA", "QLoRA", "GGUF", "ONNX", "vLLM", "llama.cpp", "Ollama",
+    "LangChain", "LangGraph", "ComfyUI", "RunPod", "Modal", "WandB", "TensorRT", "Triton", "FlashAttention",
+    "BFloat16", "FP8", "Q4_0", "INT8", "SFT", "RLHF", "DPO", "GRPO", "MoE",
+    "FastAPI", "Pydantic", "Supabase", "Vercel", "Cloudflare", "Stripe", "Linear", "Sentry", "Datadog",
+    "ClickHouse", "DuckDB", "Polars", "Tailscale", "WireGuard", "Tailwind", "Vite", "Bun", "uv", "ruff",
+    "pytest", "Gradle", "Bazel", "Cargo", "Podman", "Helm", "ArgoCD", "Prometheus", "OpenTelemetry",
+    "Playwright", "Cypress", "Prisma", "Drizzle", "tRPC", "Svelte", "Astro", "Flutter", "Jetpack Compose",
+    "Ktor", "OkHttp", "Retrofit", "Protobuf", "WebRTC", "S3", "EC2", "EKS", "GCP", "BigQuery", "Vertex AI",
+    "backend", "frontend", "fullstack", "deploy", "pipeline", "webhook", "microservice", "endpoint",
 }
 
 
@@ -66,9 +79,8 @@ class Term:
 
 
 def _usable(text: str) -> bool:
-    # Latin-script, no digits (numbers are checked separately), short enough for the context line
-    return bool(re.search(r"[A-Za-z]", text)) and not re.search(r"\d", text) and len(text) <= 40 \
-        and not T.cyr_share(text)
+    # Latin-script tech/model names (digits allowed for Qwen3.5, GPT-5, RTX 5090, HTTP/2, etc.), short enough for context
+    return bool(re.search(r"[A-Za-z]", text)) and len(text) <= 40 and not T.cyr_share(text)
 
 
 @lru_cache(maxsize=1)

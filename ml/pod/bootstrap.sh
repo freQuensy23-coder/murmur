@@ -55,13 +55,13 @@ fi
 if step llama "$MARK_VOL"; then
   mkdir -p "$W/llama/cpu/llama-$LLAMA_TAG" "$W/llama/cuda/llama-$LLAMA_TAG"
   base="https://github.com/ggml-org/llama.cpp"
-  curl -fsSL "$base/archive/refs/tags/$LLAMA_TAG.tar.gz" | tar xz -C "$W/llama"
+  curl -fsSL "$base/archive/refs/tags/$LLAMA_TAG.tar.gz" | tar --no-same-owner -xz -C "$W/llama"
   for pair in "cpu:llama-$LLAMA_TAG-bin-ubuntu-x64.tar.gz" "cuda:llama-$LLAMA_TAG-bin-ubuntu-cuda-12.8-x64.tar.gz" \
               "cuda:cudart-llama-$LLAMA_TAG-bin-ubuntu-cuda-12.8-x64.tar.gz"; do
     # every release tarball has exactly one top-level dir (llama-<tag>/ or cudart-.../): strip it so
     # binaries, libs AND their .so symlinks (libllama-common.so.1 -> ...) land together in one dir
     curl -fsSL "$base/releases/download/$LLAMA_TAG/${pair#*:}" \
-      | tar xz -C "$W/llama/${pair%%:*}/llama-$LLAMA_TAG" --strip-components=1
+      | tar --no-same-owner -xz -C "$W/llama/${pair%%:*}/llama-$LLAMA_TAG" --strip-components=1
   done
   LD_LIBRARY_PATH="$LLAMA_BIN_CPU" "$LLAMA_BIN_CPU/llama-server" --version 2>&1 | tail -1
   LD_LIBRARY_PATH="$LLAMA_BIN_CUDA" "$LLAMA_BIN_CUDA/llama-server" --version 2>&1 | tail -2

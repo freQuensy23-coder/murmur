@@ -1,0 +1,32 @@
+# Girgur (ru + en + he) cleanup model: LoRA fine-tune of Qwen/Qwen3.5-2B on the combined
+# ~4,200 train / ~450 dev / ~450 test dataset (3,000 RU+EN + 1,200 Hebrew/he_en/he_ru).
+# Sized for 1x RTX 5090 (32 GB): ~263 optimizer steps/epoch (~788 steps for 3 epochs, ~18-22 min).
+extends: base.yaml
+run_name: girgur-q2-lora
+output_dir: ${MURMUR_RUNS:-.cache/ml/train/runs}/girgur-q2-lora
+base_model: Qwen/Qwen3.5-2B
+method: lora
+lora:
+  r: 16
+  alpha: 32
+  dropout: 0.05
+  target_modules: all-linear
+  rslora: false
+data:
+  train:
+    - {path: "${DATA_DIR:-.cache/ml/data/girgur}/train.jsonl", weight: 1.0}
+  dev:
+    - {path: "${DATA_DIR:-.cache/ml/data/girgur}/dev.jsonl"}
+  upsample: {}
+export:
+  name: girgur-cleanup-qwen3.5-2b
+  quants: [Q4_0]
+  keep_bf16: true
+train:
+  lr: 2.0e-4
+  epochs: 3
+  batch_size: 16
+  grad_accum: 1
+  warmup: 0.05
+  save_steps: 100
+  eval_steps: 100

@@ -10,14 +10,21 @@ import random
 # package -> template (exact app look-alike), then category -> weighted templates
 BY_PACKAGE = {
     "org.telegram.messenger": "messenger_a", "org.telegram.plus": "messenger_a", "com.whatsapp": "messenger_b",
-    "com.slack": "work_chat", "com.microsoft.teams": "work_chat", "com.discord": "work_chat",
+    "com.facebook.orca": "messenger_a", "com.viber.voip": "messenger_b",
+    "com.slack": "work_chat", "com.Slack": "work_chat", "com.microsoft.teams": "work_chat", "com.discord": "work_chat",
     "com.atlassian.android.jira.core": "issue_tracker", "com.linear.app": "issue_tracker",
+    "com.monday.monday": "issue_tracker", "com.trello": "issue_tracker", "com.asana.app": "issue_tracker",
     "com.termux": "terminal", "com.github.android": "browser_pr", "com.google.android.keep": "notes",
     "com.samsung.android.app.notes": "notes", "com.google.android.apps.docs.editors.docs": "doc_editor",
-    "notion.id": "doc_editor", "md.obsidian": "notes", "com.google.android.calendar": "calendar_tasks",
-    "com.samsung.android.calendar": "calendar_tasks", "com.vkontakte.android": "social_feed",
-    "com.instagram.android": "social_feed", "com.openai.chatgpt": "ai_chat", "com.anthropic.claude": "ai_chat",
-    "com.yandex.alice": "ai_chat", "ai.perplexity.app.android": "ai_chat",
+    "com.microsoft.office.word": "doc_editor", "notion.id": "doc_editor", "md.obsidian": "notes",
+    "com.google.android.calendar": "calendar_tasks", "com.samsung.android.calendar": "calendar_tasks",
+    "com.todoist": "calendar_tasks", "com.google.android.apps.tasks": "calendar_tasks",
+    "com.waze": "browser_search", "com.google.android.apps.maps": "browser_search", "com.tranzmate": "browser_search",
+    "com.yad2.yad2": "browser_search", "com.booking": "browser_search",
+    "com.vkontakte.android": "social_feed", "com.instagram.android": "social_feed",
+    "com.facebook.katana": "social_feed", "com.instagram.barcelona": "social_feed", "com.google.android.youtube": "social_feed",
+    "com.openai.chatgpt": "ai_chat", "com.anthropic.claude": "ai_chat",
+    "com.yandex.alice": "ai_chat", "ai.perplexity.app.android": "ai_chat", "com.google.android.apps.bard": "ai_chat",
 }
 BY_CATEGORY = {
     "messaging": [("messenger_a", 55), ("messenger_b", 45)],
@@ -35,6 +42,8 @@ HINTS = {
            "search": "Поиск", "address": "Адрес", "code": "", "generic": ""},
     "en": {"message": "Message", "email_body": "Compose email", "email_subject": "Subject", "note": "Note",
            "search": "Search", "address": "Address", "code": "", "generic": ""},
+    "he": {"message": "הודעה", "email_body": "כתיבת אימייל", "email_subject": "נושא", "note": "הערה",
+           "search": "חיפוש", "address": "כתובת", "code": "", "generic": ""},
 }
 
 
@@ -68,10 +77,15 @@ def from_teacher(screen: dict, app: dict, field_kind: str | None = "message", la
     """Render spec for a teacher screen. field_kind None = the app exposes no focused field."""
     r = random.Random(f"spec|{seed}")
     tpl = template or choose_template(app, field_kind, r)
-    loc = locale or ("ru" if lang in ("ru", "mixed") else ("ru" if r.random() < 0.35 else "en"))
+    if locale:
+        loc = locale
+    elif lang in ("he", "he_en", "he_ru"):
+        loc = "he" if r.random() < 0.8 else "en"
+    else:
+        loc = "ru" if lang in ("ru", "mixed") else ("ru" if r.random() < 0.35 else "en")
     field = None
     if field_kind is not None:
-        field = {"kind": field_kind, "hint": HINTS[loc].get(field_kind, ""), "before_cursor": screen.get("before_cursor") or ""}
+        field = {"kind": field_kind, "hint": HINTS.get(loc, HINTS["en"]).get(field_kind, ""), "before_cursor": screen.get("before_cursor") or ""}
     return {
         "template": tpl,
         "device": device or ("fold7_cover" if r.random() < 0.6 else "fold7_inner"),

@@ -402,7 +402,7 @@ private fun HistoryRowItem(
         } else annotated to marks
         MarkedText(
             full.first, full.second, style = t.entry, color = if (row.text == null) c.ink3 else c.ink,
-            maxLines = 3, modifier = Modifier.padding(top = 6.dp),
+            maxLines = 3, modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         )
     }
 }

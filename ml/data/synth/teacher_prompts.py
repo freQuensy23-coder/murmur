@@ -81,8 +81,35 @@ MIX_HINTS = {
     "none": "",
     "ru_terms": "Russian speech with English technical terms, product names or short English phrases inside Russian sentences (Russian grammar around them).",
     "switch": "True code-switching: at least one full clause in Russian and at least one full clause in English in the same dictation; each stays in its own language in the target.",
+    "he_terms": "Israeli Hebrew speech with English technical terms, product names or short English phrases inside Hebrew sentences, using natural Hebrew hyphenated prefixes like ל-GitHub, ב-Slack, מ-Docker, ה-PR, ש-Kubernetes.",
+    "he_en_switch": "True code-switching: at least one full clause in Hebrew and at least one full clause in English in the same dictation; each stays in its own language in the target.",
+    "he_ru_switch": "Natural Israeli Hebrew + Russian bilingual speech: both Hebrew and Russian clauses or phrases in the same dictation; each stays in its own script and language in the target (never translate between Hebrew and Russian).",
 }
-LANG_NAMES = {"ru": "Russian", "en": "English", "mixed": "Russian + English"}
+LANG_NAMES = {"ru": "Russian", "en": "English", "mixed": "Russian + English",
+              "he": "Hebrew", "he_en": "Hebrew + English", "he_ru": "Hebrew + Russian"}
+
+GEN_SYSTEM_HE_ADDENDUM = """
+
+Additional Hebrew rules (for Hebrew, Hebrew + English, and Hebrew + Russian scenarios):
+- Write natural, modern Israeli Hebrew (without niqqud / vowel points). Use standard geresh/gershayim (ג׳, צ׳, צה״ל, ד״ר, בע״מ, נתב״ג) where natural.
+- Hebrew has no letter case: for 'continuation' mid-sentence scenarios, never repeat before_cursor and do not add a leading space.
+- Hebrew numbers, times, money & street addresses: write everything in Hebrew words in "spoken" ("עשרים וחמישה בנובמבר בשלוש וחצי", "מאתיים וחמישים שקלים", "חמישה עשר אחוז", "ברחוב רוטשילד ארבעים וחמש", "פיאר שמונה מאות וארבע עשרה"); in "target" use digits per rule 4 ("25 בנובמבר ב-15:30" or "בשעה 3:30", "250 ₪" or "250 שקלים", "15%", "ברחוב רוטשילד 45" — NEVER add an extra "ב-" before house numbers!, "PR #814" or "PR 814" — NEVER turn three-digit ticket/PR numbers into clock times like "800:14"!). Small everyday counts (אחד, שתיים, שלוש פעמים) stay words.
+- Hebrew spoken emails & URLs ('address'): in "spoken", users often say the entire address in Hebrew words ("דניאל נקודה כהן שטרודל ג׳ימייל נקודה קום", "נועה מקף לוי שטרודל וואלה נקודה סי או נקודה איי אל", "גיטהאב נקודה קום סלאש אורי מקף אפ"). In "target", ALWAYS output the clean lowercase Latin email/URL ("daniel.cohen@gmail.com", "noa-levi@walla.co.il", "github.com/ori-app").
+- Hebrew formatting commands in "spoken": נקודה (.), פסיק (,), סימן שאלה (?), סימן קריאה (!), נקודתיים (:), שורה חדשה (\\n), פסקה חדשה (\\n\\n), פתח מרכאות / סגור מרכאות. False friends like "נקודת מפגש" or "נקודה חשובה" stay as words.
+- Hebrew self-correction markers in "spoken": לא רגע, סליחה, כלומר, בעצם, זאת אומרת, תמחק את זה, לא לא, אופס, כאילו לא X אלא Y. Keep only the corrected version in "target", and cleanly drop utterance-initial fillers ("טוב אז", "אממ טוב אז", "נו", "אז") without distorting the first real word.
+- Hebrew list ordinals in "spoken": ראשון... שני... שלישי, קודם כל... דבר שני... דבר שלישי, אחת... שתיים... שלוש. Target: intro line ending with ":", then "1. ...", "2. ...".
+- Hebrew+English code-switching: attach Hebrew single-letter prefixes with a hyphen before Latin terms (ל-GitHub, ב-Slack, מ-Docker, ה-PR, ב-Gradle, ו-Redis, על Fold7). Product/tech names stay Latin in "spoken" and "target" (code applies Hebrew ASR transliteration like גיטהאב, גריידל, פיאר later).
+- Hebrew+Russian code-switching: keep every Hebrew word in Hebrew script and every Russian word in Cyrillic script — never translate either side. When Russian speech includes common Israeli everyday terms in Cyrillic transliteration (теудат зеут, битуах леуми, купат холим, арнона, мазган, каньон, ваад байт) or in Hebrew script (קופת חולים מכבי, ביטוח לאומי, תעודת זהות), keep the exact script the speaker used with clean spelling.
+- Meaningful Hebrew fillers (for 'meaningful_filler'): words like "בעצם" (actually/essentially when load-bearing), "כאילו" (as if), "סתם" (just/for no reason), "אז" (then/so causally) that carry real meaning and MUST stay in "target"."""
+
+CATEGORY_HINTS_HE = {
+    "meaningful_filler": "Include at least one Hebrew word that can act as a filler in other contexts but carries real meaning here and must stay in the target (e.g., 'כאילו' meaning 'as if', 'סתם' meaning 'for no reason', 'אז' meaning 'back then' or logical consequence, 'בעצם' meaning 'in fact').",
+    "self_correction": "The speaker makes one (sometimes two) self-corrections in Hebrew: says a wrong detail (time, day, number, name, place, item), then a Hebrew marker (לא רגע / סליחה / כלומר / בעצם / זאת אומרת / לא לא / אופס), then the right detail. 'spoken' contains the abandoned part and the marker; 'target' only the corrected sentence.",
+    "formatting_commands": "The speaker dictates 2-4 Hebrew punctuation/formatting commands as words in 'spoken' (נקודה, פסיק, סימן שאלה, סימן קריאה, נקודתיים, שורה חדשה, פסקה חדשה). Where natural, include one false friend that stays as words (e.g. 'נקודת איסוף', 'נקודה מעניינת').",
+    "list": "The speaker enumerates 3-5 items with Hebrew spoken ordinals ('קודם כל... דבר שני... דבר שלישי', 'ראשון... שני... שלישי', 'אחת... שתיים... שלוש') after a short intro. Target: intro line ending with a colon, then a numbered list '1. ...'.",
+    "numbers": "Include at least two of: a clock time, a date, an amount of money in ₪/שקלים, a percentage, a quantity with a unit, an Israeli phone number (050/052/054), or a version/ticket number. Everything in Hebrew words in 'spoken'; digits in 'target' per rule 4.",
+    "address": "The user dictates one e-mail address or URL aloud in Hebrew/English words (e.g. 'דניאל נקודה לוי שטרודל ג׳ימייל נקודה קום', 'נועה נקודה כהן שטרודל וואלה נקודה סי או נקודה איי אל'). Use a plausible address (not example.com). Target: the literal lowercase Latin address only.",
+}
 
 
 def scenario_spec(sc: dict, tones: dict) -> dict:
@@ -103,9 +130,10 @@ def scenario_spec(sc: dict, tones: dict) -> dict:
     style = (tones["categories"].get(sc["style_category"]) or tones["categories"]["default"])["text"]
     if sc["field_kind"] == "address":
         style = tones["categories"]["address"]["text"]
+    cat_hint = CATEGORY_HINTS_HE.get(cat, CATEGORY_HINTS[cat]) if sc["lang"] in ("he", "he_en", "he_ru") else CATEGORY_HINTS[cat]
     spec = {
         "sid": sc["sid"], "language": LANG_NAMES[sc["lang"]], "category": cat,
-        "category_instructions": CATEGORY_HINTS[cat], "app": sc["app"]["label"], "field": sc["field_kind"],
+        "category_instructions": cat_hint, "app": sc["app"]["label"], "field": sc["field_kind"],
         "style_line": style, "persona": sc["persona"], "topic": sc.get("topic", ""), "register": sc["register"],
         "spoken_words": f"{sc['length'][0]}-{sc['length'][1]}",
         "screen": "empty" if sc.get("screen_absent") and not must_show else
@@ -138,4 +166,6 @@ def scenario_spec(sc: dict, tones: dict) -> dict:
 def gen_request(scenarios: list[dict], tones: dict) -> tuple[str, str]:
     """(instructions, user_text) for one batch."""
     specs = [scenario_spec(s, tones) for s in scenarios]
-    return GEN_SYSTEM, "Scenarios:\n" + json.dumps(specs, ensure_ascii=False, indent=1)
+    is_he = any(s["lang"] in ("he", "he_en", "he_ru") for s in scenarios)
+    sys_txt = GEN_SYSTEM + GEN_SYSTEM_HE_ADDENDUM if is_he else GEN_SYSTEM
+    return sys_txt, "Scenarios:\n" + json.dumps(specs, ensure_ascii=False, indent=1)

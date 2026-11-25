@@ -16,7 +16,7 @@ object OcrPostProcess {
     fun process(lines: List<RecLine>, width: Int, height: Int, config: OcrConfig = OcrConfig()): List<OcrLine> {
         val kept = lines.map { L(normText(it.text), it.conf, it.rect) }.filter { keep(it, config) }
         val dominant = screenScript(kept.map { it.text }, config.screenScriptRatio)
-        val repaired = kept.map { it.copy(text = repairHomoglyphs(it.text, dominant)) }
+        val repaired = kept.map { it.copy(text = visualToLogical(repairHomoglyphs(it.text, dominant))) }
         val deduped = dedupGeometric(repaired, config.dedupIou)
         val ordered = readingOrder(deduped, width, height, config)
         return dedupText(ordered).map {
@@ -96,6 +96,10 @@ object OcrPostProcess {
 
     internal fun isLat(c: Int): Boolean = c in 'a'.code..'z'.code || c in 'A'.code..'Z'.code ||
         (c in 0x00C0..0x024F && Character.isLetter(c))
+
+    internal fun isHeb(c: Int): Boolean = c in 0x0590..0x05FF
+
+    internal fun isHebLetter(c: Int): Boolean = c in 0x0590..0x05FF && Character.isLetter(c)
 
     /** (cyrillic, latin) evidence: 1 per letter with no twin, WEAK_WEIGHT per weak twin, 0 per strong twin. */
     internal fun scriptScore(tok: IntArray): DoubleArray {
@@ -208,6 +212,89 @@ object OcrPostProcess {
         return sb.toString()
     }
 
+    // ------------------------------------------------------------------------------------------- BiDi visual-to-logical
+
+    private fun mirrorBracket(cp: Int): Int = when (cp) {
+        '('.code -> ')'.code
+        ')'.code -> '('.code
+        '['.code -> ']'.code
+        ']'.code -> '['.code
+        '{'.code -> '}'.code
+        '}'.code -> '{'.code
+        '<'.code -> '>'.code
+        '>'.code -> '<'.code
+        '«'.code -> '»'.code
+        '»'.code -> '«'.code
+        else -> cp
+    }
+
+    private fun isNumEt(cp: Int): Boolean =
+        cp == '%'.code || cp == '₪'.code || cp == '$'.code || cp == '€'.code || cp == '£'.code || cp == '+'.code
+
+    private fun reverseRtlRun(cps: IntArray, from: Int, to: Int): String {
+        val clusters = ArrayList<String>(to - from)
+        for (i in from until to) {
+            val cp = cps[i]
+            if (clusters.isNotEmpty() && Character.getType(cp) == Character.NON_SPACING_MARK.toInt()) {
+                clusters[clusters.lastIndex] = clusters.last() + String(Character.toChars(cp))
+            } else {
+                clusters.add(String(Character.toChars(mirrorBracket(cp))))
+            }
+        }
+        val sb = StringBuilder()
+        for (i in clusters.lastIndex downTo 0) sb.append(clusters[i])
+        return sb.toString()
+    }
+
+    /**
+     * Convert visual left-to-right CTC output to logical Unicode order when a line contains Hebrew (U+0590..U+05FF).
+     * 100% no-op on lines without Hebrew characters. Matches `ml/ocr/postprocess.py:visual_to_logical` identically.
+     */
+    fun visualToLogical(text: String): String {
+        val cps = text.codePoints().toArray()
+        if (cps.none { isHeb(it) }) return text
+        val n = cps.size
+        val cls = CharArray(n) { i ->
+            val c = cps[i]
+            when {
+                isHeb(c) -> 'R'
+                isLat(c) || isCyr(c) || Character.isLetter(c) -> 'L'
+                c in '0'.code..'9'.code -> 'D'
+                else -> 'N'
+            }
+        }
+        var base = 'R'
+        for (cl in cls) if (cl == 'R' || cl == 'L') base = cl
+        val dirs = CharArray(n) { i -> if (cls[i] == 'L' || cls[i] == 'D') 'L' else cls[i] }
+        for (i in 1 until n) {
+            if (isNumEt(cps[i]) && (cls[i - 1] == 'D' || (isNumEt(cps[i - 1]) && dirs[i - 1] == 'L'))) dirs[i] = 'L'
+        }
+        for (i in n - 2 downTo 0) {
+            if (isNumEt(cps[i]) && (cls[i + 1] == 'D' || (isNumEt(cps[i + 1]) && dirs[i + 1] == 'L'))) dirs[i] = 'L'
+        }
+        var i = 0
+        while (i < n) {
+            if (dirs[i] != 'N') { i++; continue }
+            var j = i
+            while (j < n && dirs[j] == 'N') j++
+            val left = if (i > 0) dirs[i - 1] else base
+            val right = if (j < n) dirs[j] else base
+            val fill = if (left == right) left else base
+            for (k in i until j) dirs[k] = fill
+            i = j
+        }
+        val runs = ArrayList<String>()
+        i = 0
+        while (i < n) {
+            var j = i + 1
+            while (j < n && dirs[j] == dirs[i]) j++
+            runs.add(if (dirs[i] == 'R') reverseRtlRun(cps, i, j) else String(cps, i, j - i))
+            i = j
+        }
+        if (base == 'R') runs.reverse()
+        return runs.joinToString("")
+    }
+
     // ------------------------------------------------------------------------------------------- de-duplication
 
     /**
@@ -246,6 +333,27 @@ object OcrPostProcess {
 
     // ------------------------------------------------------------------------------------------- reading order
 
+    private fun isRtlRow(row: List<L>): Boolean {
+        var heb = 0
+        var ltr = 0
+        var rtlStarts = 0
+        var ltrStarts = 0
+        for (ln in row) {
+            var firstStrong = 0
+            ln.text.codePoints().forEach { c ->
+                if (isHebLetter(c)) {
+                    heb++
+                    if (firstStrong == 0) firstStrong = 1
+                } else if (isLat(c) || isCyr(c)) {
+                    ltr++
+                    if (firstStrong == 0) firstStrong = -1
+                }
+            }
+            if (firstStrong == 1) rtlStarts++ else if (firstStrong == -1) ltrStarts++
+        }
+        return heb > 0 && (heb > ltr || rtlStarts > ltrStarts)
+    }
+
     /** Rows: a line joins the first row whose first line overlaps it vertically enough and none of whose lines it intersects. */
     internal fun rows(lines: List<L>, overlap: Double): List<L> {
         val order = lines.sortedWith(compareBy({ it.box.y0 }, { it.box.x0 }))
@@ -259,7 +367,10 @@ object OcrPostProcess {
             }
             if (row != null) row += ln else rows += mutableListOf(ln)
         }
-        return rows.flatMap { row -> row.sortedWith(compareBy({ it.box.x0 }, { it.box.y0 })) }
+        return rows.flatMap { row ->
+            if (isRtlRow(row)) row.sortedWith(compareBy({ -it.box.x1 }, { it.box.y0 }))
+            else row.sortedWith(compareBy({ it.box.x0 }, { it.box.y0 }))
+        }
     }
 
     /** Two-pane layout: (gutter x, band y0, band y1) or null. The widest free gap inside paneGutterRange wins. */

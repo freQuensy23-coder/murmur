@@ -539,4 +539,54 @@ class OrchestratorFlowTest {
         assertEquals(listOf(" $raw"), h2.w.inserter.inserted)
     }
 
+    @Test fun toggleHebrewMidRecordingSwapsAsrAndReplaysFromSampleZeroWithoutStoppingMic() = runTest {
+        val h = harness {
+            settings.edit { it.copy(languages = listOf("ru", "en", "he")) }
+            models.hebrewAsrInstalled = true
+            engines.asr.scripts.addLast("привет это тест")
+            engines.asr.scripts.addLast("שלום עולם מה שלומך")
+            engines.llm.output = { it }
+        }
+        h.at(0); h.tap(); h.at(1_200)
+        assertEquals(Listening(0, hold = false, warn = false, hebrewAvailable = true, hebrewActive = false), h.o.bubble.value)
+        // Swap to Hebrew mid-recording: mic keeps recording continuously and replays from sample 0.
+        h.press(UserInput.ToggleHebrew)
+        h.at(1_250)
+        assertEquals(Listening(0, hold = false, warn = false, hebrewAvailable = true, hebrewActive = true), h.o.bubble.value)
+        h.at(2_800); h.tap()
+        h.scope.testScheduler.advanceUntilIdle()
+        assertEquals(1, h.w.audio.starts)
+        assertEquals(listOf(h.w.models.asrCpu.artifactId, h.w.models.hebrewAsrSpec.artifactId), h.w.engines.asr.loadedSpecs.map { it.artifactId })
+        assertEquals(2, h.w.engines.asr.sessions.size)
+        assertTrue(h.w.engines.asr.sessions[0].cancelled)
+        assertEquals("all 2.8s replayed from sample 0", 2_800L * 16, h.w.engines.asr.sessions[1].samples)
+        val e = h.only()
+        assertEquals(EntryStatus.INSERTED, e.status)
+        assertEquals("שלום עולם מה שלומך", e.finalText)
+        assertEquals("he", e.language)
+        assertEquals(h.w.models.hebrewAsrSpec.modelId, e.asr?.modelId)
+        assertEquals("he", h.w.renderer.inputs.last().ctx?.language?.asr)
+        h.assertNoInternalErrors()
+    }
+
+    @Test fun togglingHebrewOffMidRecordingSwapsBackToPrimaryAsrAndReplaysAllAudio() = runTest {
+        val h = harness {
+            settings.edit { it.copy(languages = listOf("ru", "en", "he")) }
+            models.hebrewAsrInstalled = true
+        }
+        h.at(0); h.tap(); h.at(1_000)
+        h.press(UserInput.ToggleHebrew); h.at(1_800)
+        h.press(UserInput.ToggleHebrew); h.at(2_800); h.tap()
+        h.scope.testScheduler.advanceUntilIdle()
+        assertEquals(1, h.w.audio.starts)
+        assertEquals(
+            listOf(h.w.models.asrCpu.artifactId, h.w.models.hebrewAsrSpec.artifactId, h.w.models.asrCpu.artifactId),
+            h.w.engines.asr.loadedSpecs.map { it.artifactId },
+        )
+        assertEquals(3, h.w.engines.asr.sessions.size)
+        assertEquals(2_800L * 16, h.w.engines.asr.sessions[2].samples)
+        assertEquals(EntryStatus.INSERTED, h.only().status)
+        h.assertNoInternalErrors()
+    }
+
 }

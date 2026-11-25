@@ -19,8 +19,12 @@
     <string name="settings_languages_both">Russian and English</string>
     <string name="settings_languages_ru">Russian only</string>
     <string name="settings_languages_en">English only</string>
+    <string name="settings_languages_he">Hebrew only</string>
+    <!-- %1$s = comma-separated language names -->
+    <string name="settings_languages_list_auto">%1$s, detected per dictation</string>
     <string name="settings_language_ru">Russian</string>
     <string name="settings_language_en">English</string>
+    <string name="settings_language_he">Hebrew</string>
     <string name="settings_languages_sheet_body">The speech model listens for these languages. Keep at least one.</string>
     <string name="settings_languages_auto">Detect automatically</string>
     <string name="settings_languages_auto_sub">Each dictation is recognised in the language you speak</string>

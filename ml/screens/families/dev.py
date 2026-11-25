@@ -120,7 +120,7 @@ def issue_tracker(c: Ctx) -> str:
     assignee = (c.messages[0].get("author") if c.messages and c.messages[0].get("author") else c.fill.names(1)[0]) or "—"
     fields = [(c.ui["status"], f'<span class="chip" style="background:{stc};color:#172b4d;border:none;font-weight:600" data-role="chrome">{e(st)}</span>'),
               (c.ui["assignee"], f'<span class="row" style="gap:6px">{C.avatar(assignee, c.r, 24, 0)}<span data-role="author">{e(assignee)}</span></span>'),
-              (c.ui["priority"], f'<span data-role="chrome">{c.r.choice(["High", "Medium", "Low"] if c.locale != "ru" else ["Высокий", "Средний", "Низкий"])}</span>')]
+              (c.ui["priority"], f'<span data-role="chrome">{c.r.choice(["Высокий", "Средний", "Низкий"] if c.locale == "ru" else ["גבוהה", "בינונית", "נמוכה"] if c.locale == "he" else ["High", "Medium", "Low"])}</span>')]
     if c.snippets:
         fields.append((c.ui["labels"], " ".join(f'<span class="chip" style="height:24px" data-role="snippet">{e(s)}</span>' for s in c.snippets)))
     ftab = "".join(f'<div class="row" style="padding:6px 16px;gap:12px"><span class="t2" style="width:34%;font-size:{C.fs(14)}" data-role="chrome">{e(k)}</span>'

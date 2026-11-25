@@ -44,6 +44,7 @@ data class Settings(
     val keepRecordings: Boolean = true,
     // Models
     val asrModel: ModelId? = null,
+    val hebrewAsrModel: ModelId? = null,
     val cleanup: CleanupChoice = CleanupChoice.Default,
     /**
      * ModelId.value -> preference (review 2026-11-19: per model, not per artifact, because NPU and CPU are often

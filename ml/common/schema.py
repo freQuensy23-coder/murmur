@@ -2,7 +2,7 @@
 
 One example = one JSON object per line:
   id        str, stable and unique
-  lang      "ru" | "en" | "mixed"
+  lang      "ru" | "en" | "mixed" | "he" | "he_en" | "he_ru"
   category  str  (taxonomy below; snake_case)
   source    "sim" | "tts" | "manual" | "public:<dataset>"
   split     "train" | "dev" | "test"
@@ -23,7 +23,7 @@ from pathlib import Path
 from .jsonschema_lite import validate as validate_json
 from .render_bridge import REPO, render
 
-LANGS = {"ru", "en", "mixed"}
+LANGS = {"ru", "en", "mixed", "he", "he_en", "he_ru"}
 SPLITS = {"train", "dev", "test"}
 SOURCE_RE = re.compile(r"^(sim|tts|manual|public:[A-Za-z0-9_.\-/]+)$")
 CATEGORY_RE = re.compile(r"^[a-z][a-z0-9_]*$")

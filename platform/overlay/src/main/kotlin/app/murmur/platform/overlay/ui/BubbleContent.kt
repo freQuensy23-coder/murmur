@@ -83,6 +83,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import app.murmur.core.dictation.DictationBubble
 import app.murmur.core.model.ProductName
 import app.murmur.platform.overlay.BubbleCopy
@@ -462,14 +463,33 @@ private fun ListeningPill(
 ) {
     val c = MurmurTheme.colors
     val m = ui.metrics
+    val pillWidth = if (s.hebrewActive) m.listeningWidth + (36f * m.scale) else m.listeningWidth
     Row(
         Modifier
-            .size(m.listeningWidth.dp, m.pillHeight.dp)
+            .size(pillWidth.dp, m.pillHeight.dp)
             .padding(start = m.listenPadStart.dp, end = m.listenPadEnd.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         LevelBars(levels, m, c.onAccent, ui.reducedMotion)
         Spacer(Modifier.width(m.contentGap.dp))
+        if (s.hebrewActive) {
+            Box(
+                Modifier
+                    .testTag(TAG_HEBREW_INDICATOR)
+                    .background(if (LocalDark.current) STOP_FILL_DARK else STOP_FILL_LIGHT, RoundedCornerShape(6.dp))
+                    .padding(horizontal = (5f * m.scale).dp, vertical = (2f * m.scale).dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    HEBREW_BADGE_TEXT,
+                    style = BubbleType.label(m.scale).copy(fontSize = (12f * m.scale).sp, lineHeight = (14f * m.scale).sp),
+                    color = c.onAccent,
+                    maxLines = 1,
+                    softWrap = false,
+                )
+            }
+            Spacer(Modifier.width((6f * m.scale).dp))
+        }
         Box(Modifier.weight(1f)) { Timer(s, m, clock) }
         Spacer(Modifier.width(m.contentGap.dp))
         Box(
@@ -728,3 +748,4 @@ const val TAG_BUBBLE = "bubble"
 const val TAG_VISUAL = "bubble.visual"
 const val TAG_ACTION = "bubble.action"
 const val TAG_CANCEL = "bubble.cancel"
+const val TAG_HEBREW_INDICATOR = "bubble.hebrew.indicator"

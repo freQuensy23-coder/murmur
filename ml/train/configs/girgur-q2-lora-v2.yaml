@@ -1,0 +1,36 @@
+# Girgur v2 (ru + en + he) cleanup model: higher-rank LoRA (r=32, alpha=64) fine-tune of
+# Qwen/Qwen3.5-2B on the expanded 7,351-row trilingual dataset across 60+ Android & Israeli apps
+# (~6,137 train / 606 dev / 608 test; ~50% RU+EN / ~50% HE+HE_EN+HE_RU), with targeted upsampling
+# of spoken Hebrew emails/URLs (`address`), numbers/street addresses, and self-corrections.
+extends: base.yaml
+run_name: girgur-q2-lora-v2
+output_dir: ${MURMUR_RUNS:-.cache/ml/train/runs}/girgur-q2-lora-v2
+base_model: Qwen/Qwen3.5-2B
+method: lora
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules: all-linear
+  rslora: false
+data:
+  train:
+    - {path: "${DATA_DIR:-.cache/ml/data/girgur_v2}/train.jsonl", weight: 1.0}
+  dev:
+    - {path: "${DATA_DIR:-.cache/ml/data/girgur_v2}/dev.jsonl"}
+  upsample:
+    address: 3.0
+    numbers: 1.4
+    self_correction: 1.15
+export:
+  name: girgur-cleanup-qwen3.5-2b
+  quants: [Q4_0]
+  keep_bf16: true
+train:
+  lr: 1.5e-4
+  epochs: 3
+  batch_size: 16
+  grad_accum: 1
+  warmup: 0.05
+  save_steps: 150
+  eval_steps: 150

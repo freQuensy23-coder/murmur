@@ -249,7 +249,7 @@ def run_detailed(image, exclude_rects=(), cfg: OcrConfig = DEFAULT) -> dict:
     lines = [ln for ln in raw if pp.keep(ln, cfg)]
     dominant = pp.screen_script([ln["text"] for ln in lines], cfg.screen_script_ratio)
     for ln in lines:
-        ln["text"] = pp.repair_homoglyphs(ln["text"], dominant)
+        ln["text"] = pp.visual_to_logical(pp.repair_homoglyphs(ln["text"], dominant))
     lines = pp.dedup_geometric(lines, cfg.dedup_iou)
     lines = pp.reading_order(lines, w, h, cfg)
     lines = pp.dedup_text(lines)

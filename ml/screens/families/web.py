@@ -19,6 +19,7 @@ TEMPLATE_APPS = {
 
 DOMAINS_RU = ["news.example.ru", "habr-like.ru", "tech-daily.ru", "gazeta-online.ru", "blog.example.ru"]
 DOMAINS_EN = ["news.example.com", "techreview.example.com", "dailywire.example.org", "blog.example.io"]
+DOMAINS_HE = ["news.example.co.il", "tech.example.co.il", "blog.example.co.il", "daily.example.co.il"]
 
 
 def _slug(s: str) -> str:
@@ -29,7 +30,7 @@ def _slug(s: str) -> str:
 def _urlbar(c: Ctx, url: str, focus: bool, bottom: bool) -> str:
     if focus:
         f = dict(c.field)
-        hint = f.get("hint") or ("Введите запрос или URL" if c.locale == "ru" else "Search or type URL")
+        hint = f.get("hint") or ("Введите запрос или URL" if c.locale == "ru" else "חיפוש או הקלדת כתובת" if c.locale == "he" else "Search or type URL")
         box = C.input_field(f, hint, c.r, (), ("mic",), "inputbox")
         return f'<div class="row" style="padding:8px 10px;gap:8px;background:var(--bar)">{box}</div>'
     tabs = c.r.randint(2, 40)
@@ -57,18 +58,18 @@ def _comment_box(c: Ctx, hint: str) -> str:
 
 
 def browser_article(c: Ctx) -> str:
-    dom = c.r.choice(DOMAINS_RU if c.locale == "ru" else DOMAINS_EN)
+    dom = c.r.choice(DOMAINS_RU if c.locale == "ru" else DOMAINS_HE if c.locale == "he" else DOMAINS_EN)
     title = c.title or (c.messages[0]["text"][:60] if c.messages else "")
     url = f"{dom}/{c.r.choice(['news', 'articles', 'blog', 'p'])}/{_slug(title)}"
     site = (f'<div class="row" style="padding:10px 16px;gap:10px;border-bottom:1px solid var(--divider)">{C.icon("menu")}'
             f'<span style="font-weight:800;font-size:{C.fs(18)};letter-spacing:.5px" data-role="chrome">{e(dom.split(".")[0].upper())}</span>'
             f'<span class="grow"></span>{C.icon("search")}</div>')
     by = (f'<div class="t2" style="font-size:{C.fs(13)};margin:6px 0 12px" data-role="chrome">'
-          f'{e(c.fill.names(1)[0] or "")} · {e(c.fill.date_sep())} · {c.r.randint(2, 15)} {"мин" if c.locale == "ru" else "min read"}</div>')
+          f'{e(c.fill.names(1)[0] or "")} · {e(c.fill.date_sep())} · {c.r.randint(2, 15)} {"мин" if c.locale == "ru" else "דק׳ קריאה" if c.locale == "he" else "min read"}</div>')
     paras = "".join(f'<p style="margin:0 0 14px;font-size:{C.fs(17)};line-height:1.5" data-role="message">{e(m["text"])}</p>' for m in c.messages)
     rel = ""
     if c.snippets:
-        rel = (f'<div style="font-weight:700;margin:16px 0 8px" data-role="chrome">{"Читайте также" if c.locale == "ru" else "Read more"}</div>'
+        rel = (f'<div style="font-weight:700;margin:16px 0 8px" data-role="chrome">{"Читайте также" if c.locale == "ru" else "קרא עוד" if c.locale == "he" else "Read more"}</div>'
                + "".join(f'<div style="color:var(--accent);margin-bottom:8px" data-role="snippet">{e(s)}</div>' for s in c.snippets))
     img = (f'<div style="height:{c.r.randint(120, 200)}px;border-radius:6px;margin-bottom:12px;'
            f'background:linear-gradient({c.r.randint(0, 359)}deg,{c.r.choice(C.AV_COLORS)},{c.r.choice(C.AV_COLORS)})"></div>'
@@ -84,7 +85,9 @@ def browser_search(c: Ctx) -> str:
     url = f"{eng}.com/search?q={_slug(q)}"
     qbox = (f'<div class="row" style="margin:10px 12px;height:46px;border-radius:23px;box-shadow:0 1px 4px rgba(0,0,0,.25);padding:0 16px;gap:10px;background:var(--bg)">'
             f'<span class="grow ell" data-role="title">{e(q)}</span><span class="t2">{C.icon("mic", 22)}</span><span style="color:var(--accent)">{C.icon("search", 22)}</span></div>')
-    tabs = ["Все", "Картинки", "Новости", "Видео", "Карты"] if c.locale == "ru" else ["All", "Images", "News", "Videos", "Maps"]
+    tabs = (["Все", "Картинки", "Новости", "Видео", "Карты"] if c.locale == "ru"
+            else ["הכל", "תמונות", "חדשות", "סרטונים", "מפות"] if c.locale == "he"
+            else ["All", "Images", "News", "Videos", "Maps"])
     tabbar = ('<div class="row" style="gap:18px;padding:4px 16px 0;border-bottom:1px solid var(--divider);font-size:' + C.fs(14) + '">'
               + "".join(f'<span style="padding:8px 0;{"border-bottom:3px solid var(--accent);color:var(--accent)" if i == 0 else ""}" '
                         f'class="{"" if i == 0 else "t2"}" data-role="chrome">{e(t)}</span>' for i, t in enumerate(tabs)) + "</div>")
@@ -100,12 +103,12 @@ def browser_search(c: Ctx) -> str:
                    f'<div class="t2" style="font-size:{C.fs(15)}" data-role="message">{e(m["text"])}</div></div>')
     if c.snippets:
         res.append(f'<div style="padding:12px 16px"><div style="font-weight:500;margin-bottom:6px" data-role="chrome">'
-                   f'{"Похожие запросы" if c.locale == "ru" else "People also ask"}</div>'
+                   f'{"Похожие запросы" if c.locale == "ru" else "אנשים שואלים גם" if c.locale == "he" else "People also ask"}</div>'
                    + "".join(f'<div class="row" style="padding:10px 0;border-top:1px solid var(--divider)"><span class="grow" data-role="snippet">{e(s)}</span>'
                              '</div>' for s in c.snippets) + "</div>")
     focus_on_page = c.has_field and c.field.get("kind") not in ("search", "address")
     if focus_on_page:   # the query box on the page is the focused field
-        qbox = (f'<div style="margin:10px 12px">{C.input_field(c.field, q or ("Поиск" if c.locale == "ru" else "Search"), c.r, (), ("mic",), "inputbox")}</div>')
+        qbox = (f'<div style="margin:10px 12px">{C.input_field(c.field, q or ("Поиск" if c.locale == "ru" else "חיפוש" if c.locale == "he" else "Search"), c.r, (), ("mic",), "inputbox")}</div>')
     return _browser(c, url, f'{qbox}{tabbar}<div class="grow" style="overflow:hidden">{"".join(res)}</div>',
                     page_focused=focus_on_page)
 

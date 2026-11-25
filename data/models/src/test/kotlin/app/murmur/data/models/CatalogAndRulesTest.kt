@@ -98,7 +98,7 @@ class ModelDownloadRulesTest {
         installed.download(ArtifactId("silero-vad-v5@onnx"), true)   // already installed
         val queued = rules.downloadPack("recommended", Settings())
         assertEquals(
-            listOf("parakeet-tdt-0.6b-v3@onnx-int8", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-cyrillic-mobile-rec@onnx", "murmur-cleanup-qwen3.5-2b@q4_0"),
+            listOf("parakeet-tdt-0.6b-v3@onnx-int8", "pp-ocrv6-tiny-det@onnx", "pp-ocrv5-ru-en-he-mobile-rec@onnx", "murmur-cleanup-qwen3.5-2b@q4_0"),
             queued.map { it.artifact.id.value },
         )
         assertTrue(queued.all { installed.state(it.artifact.id).first() is InstallState.Installed })
@@ -111,7 +111,7 @@ class ModelDownloadRulesTest {
         val pinCpu = Settings(unitPreference = mapOf("parakeet-tdt-0.6b-v3" to UnitPreference.Pinned(ComputeUnit.CPU)))
         assertEquals(listOf("parakeet-tdt-0.6b-v3@onnx-int8", "silero-vad-v5@onnx"), rules.downloadModel(ModelId("parakeet-tdt-0.6b-v3"), pinCpu).map { it.artifact.id.value })
         assertEquals(listOf("parakeet-tdt-0.6b-v3@qnn-sm8750-20s"), rules.downloadModel(ModelId("parakeet-tdt-0.6b-v3"), Settings()).map { it.artifact.id.value })
-        assertEquals(listOf("pp-ocrv6-tiny-det@onnx", "pp-ocrv5-cyrillic-mobile-rec@onnx"), rules.onUseScreenEnabled(Settings()).map { it.artifact.id.value })
+        assertEquals(listOf("pp-ocrv6-tiny-det@onnx", "pp-ocrv5-ru-en-he-mobile-rec@onnx"), rules.onUseScreenEnabled(Settings()).map { it.artifact.id.value })
         assertEquals(emptyList<String>(), rules.onUseScreenEnabled(Settings()).map { it.artifact.id.value })
     }
 }

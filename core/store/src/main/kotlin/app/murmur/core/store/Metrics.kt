@@ -103,26 +103,37 @@ class DefaultDeliveryMetrics : DeliveryMetrics {
         (editDistanceWords(raw, final) - fillersRemoved(raw, final, fillers)).coerceAtLeast(0)
 
     /**
-     * Each token is assigned the script most of its letters are written in (Cyrillic or Latin; digits and other
-     * scripts count for neither); mixed = the smaller of the two counts is at least 2 (DESIGN 6.2 "Languages").
+     * Each token is assigned the script most of its letters are written in (Cyrillic, Latin, or Hebrew; digits and
+     * other scripts count for none); mixed = at least 2 scripts have at least 2 tokens each (DESIGN 6.2 "Languages").
      */
     override fun mixedLanguage(text: String): Boolean {
         var cyrillic = 0
         var latin = 0
+        var hebrew = 0
         for (t in Words.tokens(text)) {
             var c = 0
             var l = 0
+            var h = 0
             for (ch in t) {
                 if (!ch.isLetter()) continue
                 when (Character.UnicodeScript.of(ch.code)) {
                     Character.UnicodeScript.CYRILLIC -> c++
                     Character.UnicodeScript.LATIN -> l++
+                    Character.UnicodeScript.HEBREW -> h++
                     else -> {}
                 }
             }
-            if (c > l) cyrillic++ else if (l > c) latin++
+            when {
+                c > l && c > h -> cyrillic++
+                l > c && l > h -> latin++
+                h > c && h > l -> hebrew++
+            }
         }
-        return minOf(cyrillic, latin) >= 2
+        var scriptsWithTwo = 0
+        if (cyrillic >= 2) scriptsWithTwo++
+        if (latin >= 2) scriptsWithTwo++
+        if (hebrew >= 2) scriptsWithTwo++
+        return scriptsWithTwo >= 2
     }
 
     private fun levenshtein(a: List<String>, b: List<String>): Int {

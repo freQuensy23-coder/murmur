@@ -188,6 +188,7 @@ class FakeModelResolver(
     var health: app.murmur.core.catalog.UnitHealth = app.murmur.core.catalog.UnitHealth.NONE,
     var delayMs: Long = 0,
     var llmMemoryMb: Int = 770,
+    var hebrewAsrInstalled: Boolean = false,
 ) : ModelResolver {
     var calls = 0; private set
 
@@ -196,6 +197,8 @@ class FakeModelResolver(
 
     val asrCpu = spec(ModelKind.ASR, "parakeet-tdt-0.6b-v3@onnx-int8", RuntimeKeys.SHERPA_OFFLINE_TRANSDUCER)
     val asrNpu = spec(ModelKind.ASR, "parakeet-tdt-0.6b-v3@qnn-sm8750-20s", RuntimeKeys.SHERPA_OFFLINE_TRANSDUCER, ComputeUnit.NPU)
+    val hebrewAsrSpec = spec(ModelKind.ASR, "zipformer2-66m-streaming-he@onnx-int8", RuntimeKeys.SHERPA_ONLINE_TRANSDUCER,
+        opts = mapOf("model_type" to "zipformer2"))
     val vad = spec(ModelKind.VAD, "silero-vad-v5@onnx", "ort/silero-vad-v5")
     val ocrDet = spec(ModelKind.OCR_DET, "pp-ocrv6-tiny-det@onnx", "ort/ppocr-det")
     val ocrRec = spec(ModelKind.OCR_REC, "pp-ocrv5-cyrillic-mobile-rec@onnx", "ort/ppocr-rec")
@@ -214,10 +217,13 @@ class FakeModelResolver(
         if (asrRanked.isEmpty()) return Outcome.Err(MurmurError.NoAsrModel)
         val llmRanked = (if (npuFirst) listOfNotNull(llmNpu, llmCpu.takeIf { cpuFallback }) else listOf(llmCpu)).filter(::usable)
         val llmOn = cleanup && settings.cleanup != CleanupChoice.None && llmRanked.isNotEmpty()
+        val heOn = hebrewAsrInstalled && settings.languages.any { app.murmur.core.model.Language.normalize(it) == "he" }
         return Outcome.Ok(ActiveModels(
             asr = asrRanked[0],
             asrFallback = asrRanked.getOrNull(1),
             asrTraits = app.murmur.core.catalog.AsrTraits(streaming = false, punctuation = true, casing = true),
+            hebrewAsr = hebrewAsrSpec.takeIf { heOn },
+            hebrewAsrTraits = app.murmur.core.catalog.AsrTraits(streaming = true, punctuation = false, casing = false).takeIf { heOn },
             vad = vad,
             ocrDet = ocrDet.takeIf { settings.useScreen },
             ocrRec = ocrRec.takeIf { settings.useScreen },

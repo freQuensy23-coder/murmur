@@ -30,6 +30,7 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 SCRATCH = Path(os.environ.get("MURMUR_SCREENS_SCRATCH", REPO / ".cache" / "ml" / "screens"))
 FONTS = Path(os.environ.get("MURMUR_SCREENS_FONTS", SCRATCH / "fonts"))
+OCR_FONTS = Path(os.environ.get("MURMUR_OCR_FONTS", REPO / ".cache" / "ml" / "ocr" / "fonts"))
 CHROME = os.environ.get("MURMUR_CHROME", "/usr/local/bin/google-chrome")   # driver.js reads the same variable
 
 
@@ -76,6 +77,9 @@ class Renderer:
         link = self.workdir / "fonts"
         if not link.exists():
             link.symlink_to(FONTS, target_is_directory=True)
+        olink = self.workdir / "ocr_fonts"
+        if not olink.exists() and OCR_FONTS.exists():
+            olink.symlink_to(OCR_FONTS, target_is_directory=True)
         self.proc = None
         self.lock = threading.Lock()
         self.ids = itertools.count()
@@ -105,7 +109,7 @@ class Renderer:
             hp.write_text(html, encoding="utf-8")
             png = Path(out_png) if out_png else self.workdir / f"{i % 4}.png"
             req = {"id": i, "html": str(hp), "w": dev["w"], "h": dev["h"], "css_w": dev["css_w"], "css_h": dev["css_h"],
-                   "out": str(png.resolve())}
+                   "out": str(png.resolve()), "locale": spec.get("locale", "ru")}
             self.proc.stdin.write(json.dumps(req) + "\n")
             self.proc.stdin.flush()
             line = self.proc.stdout.readline()

@@ -39,6 +39,8 @@ def normalise_spec(spec: dict) -> dict:
         raise ValueError(f"unknown device {s['device']!r}")
     if s["theme"] not in ("light", "dark"):
         raise ValueError(f"unknown theme {s['theme']!r}")
+    if s["locale"] not in ("ru", "en", "he"):
+        raise ValueError(f"unknown locale {s['locale']!r}")
     fs = float(s["font_scale"])
     if not 0.7 <= fs <= 1.6:
         raise ValueError(f"font_scale {fs} out of range")

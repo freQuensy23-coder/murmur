@@ -32,6 +32,8 @@
     <string name="bubble_ready_cd">Start dictation. Double-tap to talk, double-tap again to finish</string>
     <string name="bubble_finish_cd">Finish dictation</string>
     <string name="bubble_cancel_cd">Cancel and discard</string>
+    <string name="bubble_hebrew_off_cd">Switch to Hebrew</string>
+    <string name="bubble_hebrew_on_cd">Hebrew active, switch back</string>
     <string name="bubble_hold_live">Listening. Release to finish</string>
     <string name="bubble_copied_live">Copied to clipboard</string>
     <string name="bubble_drag_cd">Dragging. Release at the bottom to hide</string>

@@ -77,6 +77,12 @@ fun OnboardingScreen(deps: OnboardingDeps, onDone: () -> Unit, modifier: Modifie
     }
     BackHandler { ctl.dispatch(OnboardingEvent.Back) }
     LaunchedEffect(state.exited) { if (state.exited) activity?.finish() }
+    LaunchedEffect(state.finished) {
+        if (state.finished) {
+            deps.settings.update { it.copy(onboardingDone = true) }
+            onDone()
+        }
+    }
 
     val mic = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         val canAsk = activity?.shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) == true
@@ -108,16 +114,17 @@ fun OnboardingScreen(deps: OnboardingDeps, onDone: () -> Unit, modifier: Modifie
         },
         skip = { ctl.dispatch(OnboardingEvent.Skip) },
         select = ctl::select,
+        setLanguage = ctl::setLanguage,
         setWifiOnly = ctl::setWifiOnly,
         download = ctl::download,
         pause = ctl::pause,
         retry = ctl::retry,
-        continueToPractice = { ctl.dispatch(OnboardingEvent.ContinueToPractice) },
+        continueSetup = { ctl.dispatch(OnboardingEvent.Continue) },
         startPractice = ctl::startPractice,
         bubbleTap = { deps.bubbleInput(UserInput.Tap) },
         done = { ctl.finish(onDone) },
     )
-    OnboardingContent(state, ctl, deps, actions, rememberIsWide(), modifier)
+    OnboardingContent(state, ctl, actions, rememberIsWide(), modifier)
 }
 
 /**
@@ -139,8 +146,8 @@ fun PracticeScreen(deps: OnboardingDeps, onClose: () -> Unit, modifier: Modifier
     val none = {}
     val actions = ObActions(
         start = none, requestMic = none, openAccessibility = none, openAppInfo = none, restrictedDone = none,
-        requestNotifications = none, requestBattery = none, skip = none, select = {}, setWifiOnly = {}, download = none,
-        pause = none, retry = none, continueToPractice = none,
+        requestNotifications = none, requestBattery = none, skip = none, select = {}, setLanguage = { _, _ -> }, setWifiOnly = {}, download = none,
+        pause = none, retry = none, continueSetup = none,
         startPractice = ctl::startPractice,
         bubbleTap = { deps.bubbleInput(UserInput.Tap) },
         done = onClose,
@@ -161,11 +168,12 @@ internal class ObActions(
     val requestBattery: () -> Unit,
     val skip: () -> Unit,
     val select: (String) -> Unit,
+    val setLanguage: (String, Boolean) -> Unit,
     val setWifiOnly: (Boolean) -> Unit,
     val download: () -> Unit,
     val pause: () -> Unit,
     val retry: () -> Unit,
-    val continueToPractice: () -> Unit,
+    val continueSetup: () -> Unit,
     val startPractice: (InAppTarget) -> Unit,
     val bubbleTap: () -> Unit,
     val done: () -> Unit,

@@ -79,6 +79,8 @@ class SettingsViewModelTest {
         check("typing speed", { vm.setTypingWpm(55) }) { it.copy(typingWpm = 55) }
         check("language off", { vm.setLanguage("en", false) }) { it.copy(languages = listOf("ru")) }
         check("language on (ru first)", { vm.setLanguage("en", true) }) { it.copy(languages = listOf("ru", "en")) }
+        check("hebrew on", { vm.setLanguage("he", true) }) { it.copy(languages = listOf("ru", "en", "he")) }
+        check("hebrew off", { vm.setLanguage("he", false) }) { it.copy(languages = listOf("ru", "en")) }
         check("auto detect", { vm.setAutoDetect(false) }) { it.copy(autoDetectLanguage = false) }
         check("visibility", { vm.setBubbleVisibility(BubbleVisibility.ALWAYS) }) { it.copy(bubbleVisibility = BubbleVisibility.ALWAYS) }
         check("tuck in", { vm.setTuckIn(false) }) { it.copy(tuckIn = false) }

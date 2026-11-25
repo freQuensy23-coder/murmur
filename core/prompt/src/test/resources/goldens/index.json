@@ -31,16 +31,16 @@
   "override_crlf_prefs"
  ],
  "counts": {
-  "cases": 313,
-  "goldens": 4996,
+  "cases": 314,
+  "goldens": 5012,
   "prefix_files": 132
  },
  "prefix_chars": {
   "default.v1": {
-   "qwen3.5": 4091,
-   "qwen3": 4091,
-   "lfm3": 4106,
-   "lfm2.5": 4106
+   "qwen3.5": 4513,
+   "qwen3": 4513,
+   "lfm3": 4528,
+   "lfm2.5": 4528
   },
   "default.v4": {
    "qwen3.5": 11727,
@@ -63,10 +63,10 @@
  },
  "prefix_sha256": {
   "default.v1": {
-   "qwen3.5": "fdec5d39f6e5926e9d69f6bd9ac933c44dd2b108337c3c11bbffad24c71ead24",
-   "qwen3": "fdec5d39f6e5926e9d69f6bd9ac933c44dd2b108337c3c11bbffad24c71ead24",
-   "lfm3": "8a83e946c882e6183084f9b4b5788fbd235239c15ac813bdf9faa7f009a7b042",
-   "lfm2.5": "8a83e946c882e6183084f9b4b5788fbd235239c15ac813bdf9faa7f009a7b042"
+   "qwen3.5": "34fe1be63dff38b96731cb2776735e31572eb77edd4a65ad33c343a9100ff860",
+   "qwen3": "34fe1be63dff38b96731cb2776735e31572eb77edd4a65ad33c343a9100ff860",
+   "lfm3": "81ddd667a9f32eb9b1f2988e5f070e1d6267cfa1ef511e787f8b94b2decc49f9",
+   "lfm2.5": "81ddd667a9f32eb9b1f2988e5f070e1d6267cfa1ef511e787f8b94b2decc49f9"
   },
   "default.v4": {
    "qwen3.5": "82f4c06fafacd4d480897506ce63fe2451976ed4d5fa4e326ad1d6fe188ffb08",

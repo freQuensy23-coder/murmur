@@ -15,8 +15,11 @@
     <string name="settings_languages_both">Русский и английский</string>
     <string name="settings_languages_ru">Только русский</string>
     <string name="settings_languages_en">Только английский</string>
+    <string name="settings_languages_he">Только иврит</string>
+    <string name="settings_languages_list_auto">%1$s, язык определяется в каждой диктовке</string>
     <string name="settings_language_ru">Русский</string>
     <string name="settings_language_en">Английский</string>
+    <string name="settings_language_he">Иврит</string>
     <string name="settings_languages_sheet_body">Модель речи распознаёт эти языки. Оставьте хотя бы один.</string>
     <string name="settings_languages_auto">Определять автоматически</string>
     <string name="settings_languages_auto_sub">Каждая диктовка распознаётся на том языке, на котором вы говорите</string>

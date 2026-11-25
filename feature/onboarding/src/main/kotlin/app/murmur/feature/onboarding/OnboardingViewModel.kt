@@ -8,6 +8,7 @@ import app.murmur.core.catalog.DeviceProfile
 import app.murmur.core.dictation.DictationBubble
 import app.murmur.core.dictation.InAppTarget
 import app.murmur.core.model.ArtifactId
+import app.murmur.core.model.Language
 import app.murmur.core.store.InstallState
 import app.murmur.core.store.RetentionPolicy
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +34,7 @@ data class ModelsUi(
     val active: PackOption?,
     val summary: DownloadSummary?,
     val npu: Boolean,
+    val languages: List<String> = listOf("ru", "en"),
 ) {
     val selected: PackOption? get() = options?.firstOrNull { it.pack.id == selectedId }
 }
@@ -75,14 +77,16 @@ class OnboardingController(
     ) { (opts, ch, st), states, settings, free, dev ->
         val active = activeOption(opts, st, states)
         val c = catalog.value
+        val validChosen = ch?.takeIf { id -> opts?.any { it.pack.id == id } == true }
         ModelsUi(
             options = opts,
-            selectedId = ch ?: opts?.let { PackPlanner.defaultChoice(it)?.pack?.id },
+            selectedId = validChosen ?: opts?.let { PackPlanner.defaultChoice(it)?.pack?.id },
             wifiOnly = settings.wifiOnlyDownloads,
             freeBytes = free,
             active = active,
             summary = if (active != null && c != null) DownloadSummary.of(c, active, states) else null,
             npu = dev?.hasNpu() == true,
+            languages = settings.languages,
         )
     }.stateIn(scope, SharingStarted.Eagerly, ModelsUi(null, null, true, null, null, null, false))
 
@@ -111,13 +115,30 @@ class OnboardingController(
     }
 
     fun dispatch(e: OnboardingEvent) {
-        val next = _state.updateAndGet { OnboardingMachine.reduce(it, e) }
+        var becameFinished = false
+        val next = _state.updateAndGet { prev ->
+            val reduced = OnboardingMachine.reduce(prev, e)
+            becameFinished = !prev.finished && reduced.finished
+            reduced
+        }
         OnboardingSaved.save(saved, next)
+        if (becameFinished) {
+            scope.launch { deps.settings.update { it.copy(onboardingDone = true) } }
+        }
     }
 
     fun select(packId: String) {
         chosen.value = packId
         saved[OnboardingSaved.CHOSEN] = packId
+    }
+
+    fun setLanguage(code: String, on: Boolean) {
+        scope.launch {
+            deps.settings.update { s ->
+                val next = if (on) (s.languages + code).distinct() else s.languages - code
+                if (next.isEmpty()) s else s.copy(languages = LANGUAGES.filter { it in next } + next.filter { it !in LANGUAGES })
+            }
+        }
     }
 
     fun setWifiOnly(on: Boolean) { scope.launch { deps.settings.update { it.copy(wifiOnlyDownloads = on) } } }
@@ -154,9 +175,9 @@ class OnboardingController(
         }
     }
 
-    /** "Done": onboarding is never shown again (Settings.onboardingDone). */
+    /** Finishes onboarding and persists Settings.onboardingDone = true. */
     fun finish(onDone: () -> Unit) {
-        dispatch(OnboardingEvent.Done)
+        _state.updateAndGet { it.copy(finished = true) }
         scope.launch {
             deps.settings.update { it.copy(onboardingDone = true) }
             onDone()
@@ -248,11 +269,20 @@ class OnboardingController(
     }
 
     companion object {
-        /** CatalogDefaults.asr keys: "ru+en", "ru", "en". */
-        fun languageProfile(languages: List<String>): String = when {
-            "ru" in languages && "en" in languages -> "ru+en"
-            "ru" in languages -> "ru"
-            else -> "en"
+        val LANGUAGES: List<String> = listOf("ru", "en", "he")
+
+        /** CatalogDefaults.asr keys: "ru+en", "ru", "en", "he". */
+        fun languageProfile(languages: List<String>): String {
+            val codes = languages.mapTo(HashSet()) { Language.normalize(it) }
+            val ru = "ru" in codes
+            val en = "en" in codes
+            val he = "he" in codes
+            return when {
+                he && !ru && !en -> "he"
+                ru && !en -> "ru"
+                en && !ru -> "en"
+                else -> "ru+en"
+            }
         }
 
         /**

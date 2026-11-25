@@ -1,0 +1,36 @@
+# Girgur v3 (ru + en + he) cleanup model: LoRA (r=32, alpha=64) fine-tune of Qwen/Qwen3.5-2B on
+# the 10,256-row trilingual dataset across 62 apps (8,627 train / 812 dev / 817 test), combining
+# girgur_v2 (sim) + audio_v3 (2,921 REAL Multi-TTS -> Audio Degradation -> Multi-ASR + 3-lang OCR
+# examples covering modern IT/AI/LLM/dev terms across Slack, Telegram+ChatGPT, GitHub, Jira, etc.).
+extends: base.yaml
+run_name: girgur-q2-lora-v3
+output_dir: ${MURMUR_RUNS:-.cache/ml/train/runs}/girgur-q2-lora-v3
+base_model: Qwen/Qwen3.5-2B
+method: lora
+lora:
+  r: 32
+  alpha: 64
+  dropout: 0.05
+  target_modules: all-linear
+  rslora: false
+data:
+  train:
+    - {path: "${DATA_DIR:-.cache/ml/data/girgur_v3}/train.jsonl", weight: 1.0}
+  dev:
+    - {path: "${DATA_DIR:-.cache/ml/data/girgur_v3}/dev.jsonl"}
+  upsample:
+    address: 2.2
+    numbers: 1.25
+    self_correction: 1.1
+export:
+  name: girgur-cleanup-qwen3.5-2b
+  quants: [Q4_0]
+  keep_bf16: true
+train:
+  lr: 1.5e-4
+  epochs: 3
+  batch_size: 16
+  grad_accum: 1
+  warmup: 0.05
+  save_steps: 200
+  eval_steps: 200

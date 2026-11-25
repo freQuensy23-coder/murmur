@@ -139,6 +139,11 @@ class DeliveryMetricsTest {
         assertFalse(m.mixedLanguage("Встреча в 10:30, room 5"))
         // Latin with diacritics is Latin.
         assertTrue(m.mixedLanguage("Привет, café crème и круассан"))
+        // Hebrew script counts as a third distinct script: mixed with English or Russian when >= 2 tokens each.
+        assertFalse(m.mixedLanguage("שלום עולם מה שלומך היום"))
+        assertFalse(m.mixedLanguage("שלח לי את זה ב Telegram בבקשה"))
+        assertTrue(m.mixedLanguage("שלח לי pull request לפני code review"))
+        assertTrue(m.mixedLanguage("שלום חברים привет мир сегодня"))
         for (text in listOf("Скинь мне pull request и code review", "Открой Telegram и напиши", "hello world", "")) {
             assertEquals(text, reference.mixedLanguage(text), m.mixedLanguage(text))
         }

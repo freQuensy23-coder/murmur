@@ -206,6 +206,10 @@ def synthetic() -> list[dict]:
     add("lang.absent", C(CHAT, lang=None), "привет")
     add("lang.raw_code", C(CHAT, lang="pt"), "olá")
     add("lang.uk", C(CHAT, lang="uk"), "привіт")
+    add("lang.he", C([
+        L("שלום, תשלח לי את הקישור ל", 260, 300, h=48, x1=1020),
+        L("דוח של nginx ו-ClickHouse", 520, 353, h=48, x1=1018),
+    ], lang="he"), "אממ עשיתי פוש לגיטהאב")
     # privacy
     pw = {"kind": "message", "hint": "Пароль", "before_cursor": "secret123", "password": True, "box": [21, 900, 1059, 1000]}
     add("privacy.password", C(CHAT, field=pw, privacy={"level": "app_only", "reason": "password_field"}), "мой пароль")
@@ -497,7 +501,8 @@ def guard_units() -> dict:
              "\u0661\u0662\u0663 abc", "e\u0301 caf\u00e9", "foo_bar baz", "snake_case-and\u2019more", "\u00b2\u00b3 \u00bd x\u00b2",
              "word- -word", "\u2014dash\u2014", "a\U0001F44Db", "\u0130stanbul \u0131\u0131", "\u03a3\u03bf\u03c6\u03af\u03b1 \u039f\u0394\u039f\u03a3",
              "Kubernetes кубернетис", "ClickHouse клик хаус", "\uff21\uff22\uff23 \ufb01le", "12-30 4\u00bd", "TCP/IP e-mail",
-             "\u2167 \u2460\u2461", "ﬀ ﬃ", "Ꭰ ꭰ", "", "   "]
+             "\u2167 \u2460\u2461", "ﬀ ﬃ", "Ꭰ ꭰ", "", "   ",
+             "שָׁלוֹם עוֹלָם", "צה״ל ד״ר ג׳אווה ג׳", "גיטהאב סלאק וואטסאפ קוברנטיס"]
     words = [{"s": t, "result": guard._words(t)} for t in texts]
     keys = [{"s": t, "result": guard.phonetic_key(t)} for t in texts]
     sims = [{"term": a, "transcript": b, "result": guard.best_sim(a, b)} for a in texts[::3] for b in texts[1::4]]

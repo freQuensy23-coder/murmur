@@ -22,8 +22,10 @@ from .fetch import REPO_ROOT
 CATALOG_PATH = REPO_ROOT / "docs" / "research" / "asr-catalog.json"
 
 RU_EN: FrozenSet[str] = frozenset({"ru", "en"})
+RU_EN_HE: FrozenSet[str] = frozenset({"ru", "en", "he"})
 RU: FrozenSet[str] = frozenset({"ru"})
 EN: FrozenSet[str] = frozenset({"en"})
+HE: FrozenSet[str] = frozenset({"he"})
 
 # name -> (kind, languages, role->file path inside the repo, extra recogniser kwargs)
 _TRANSDUCER_INT8 = {"encoder": "encoder.int8.onnx", "decoder": "decoder.int8.onnx",
@@ -45,7 +47,7 @@ _MODELS: Dict[str, dict] = {
         paths={"conv_frontend": "conv_frontend.onnx", "encoder": "encoder.int8.onnx",
                "decoder": "decoder.int8.onnx", "tokenizer": "tokenizer"}),
     "whisper-large-v3-turbo@onnx-int8": dict(
-        kind="offline_whisper", langs=RU_EN,
+        kind="offline_whisper", langs=RU_EN_HE,
         paths={"encoder": "turbo-encoder.int8.onnx", "decoder": "turbo-decoder.int8.onnx",
                "tokens": "turbo-tokens.txt"}),
     "distil-large-v3.5@onnx-int8": dict(
@@ -53,7 +55,7 @@ _MODELS: Dict[str, dict] = {
         paths={"encoder": "distil-large-v3.5-encoder.int8.onnx",
                "decoder": "distil-large-v3.5-decoder.int8.onnx", "tokens": "distil-large-v3.5-tokens.txt"}),
     "whisper-small@onnx-int8": dict(
-        kind="offline_whisper", langs=RU_EN,
+        kind="offline_whisper", langs=RU_EN_HE,
         paths={"encoder": "small-encoder.int8.onnx", "decoder": "small-decoder.int8.onnx",
                "tokens": "small-tokens.txt"}),
 }
@@ -61,6 +63,15 @@ _MODELS: Dict[str, dict] = {
 # Hub models the catalog lists only as SM8750 NPU binaries; the CPU path uses sherpa-onnx int8
 # exports of the same checkpoints (revisions read from the HF API).
 _OFF_CATALOG: Dict[str, dict] = {
+    "zipformer2-66m-streaming-he@onnx-int8": dict(
+        kind="online_transducer", langs=HE, default_lang="he",
+        catalog_ref="zipformer2-66m-streaming-he@onnx-int8",
+        repo="ivrit-ai/zipformer2-66m-streaming-he",
+        revision="ee769a2a13b887f91572eec349458bfb0fe79e7a",
+        paths={"encoder": "sherpa-onnx/encoder.int8.onnx", "decoder": "sherpa-onnx/decoder.int8.onnx",
+               "joiner": "sherpa-onnx/joiner.int8.onnx", "tokens": "sherpa-onnx/tokens.txt"},
+        kwargs={"model_type": "zipformer2"},
+        licence="CC-BY-4.0 (ivrit-ai/zipformer2-66m-streaming-he)"),
     "nemotron-speech-streaming-en-0.6b@onnx-int8-560ms": dict(
         kind="online_transducer", langs=EN, default_lang="en",
         catalog_ref="nemotron-speech-streaming-en-0.6b@qnn-sm8750-560ms",
@@ -93,12 +104,14 @@ MEM_MB: Dict[str, int] = {
     "whisper-small@onnx-int8": 1500,  # 1302
     "whisper-medium@onnx-int8": 4000,  # 3499; 4544 with an en and a ru recogniser both loaded
     "nemotron-speech-streaming-en-0.6b@onnx-int8-560ms": 1150,  # same architecture as Nemotron 3.5
+    "zipformer2-66m-streaming-he@onnx-int8": 300,
 }
 
 # Audio-seconds per wall-second of one 2-thread worker inside the 8-worker review run of 2026-11-19
 # (server load average 23-44 from other jobs; an idle box is 3-4x faster). Only used to cut ASR
 # shards to a similar expected wall time; a wrong value costs scheduling balance, not results.
 XRT: Dict[str, float] = {
+    "zipformer2-66m-streaming-he@onnx-int8": 8.0,
     "gigaam-v3-e2e-ctc@onnx-int8": 5.3,
     "gigaam-v3-e2e-rnnt@onnx-int8": 4.9,
     "parakeet-tdt-0.6b-v3@onnx-int8": 3.3,
@@ -163,6 +176,8 @@ def spec_for(name: str) -> AsrSpec:
         files, family, catalog_id, licence, notes = [], "", None, "", f"UNRESOLVED: {exc}"
     extra = dict(kind=cfg["kind"], paths=cfg["paths"], files=files, mem_mb=MEM_MB.get(name, 2000),
                  xrt=XRT.get(name, 1.0))
+    if "kwargs" in cfg:
+        extra["kwargs"] = cfg["kwargs"]
     if "default_lang" in cfg:
         extra["default_lang"] = cfg["default_lang"]
     if "catalog_ref" in cfg:
