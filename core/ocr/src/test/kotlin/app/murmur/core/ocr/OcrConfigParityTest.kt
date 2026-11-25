@@ -128,7 +128,10 @@ class OcrConfigParityTest {
         }
         assertEquals(setOf(pyString(fields.getValue("det_model"))), files("pp-ocrv6-tiny-det"))
         assertEquals(setOf(pyString(fields.getValue("rec_model")), pyString(fields.getValue("rec_dict"))), files("pp-ocrv5-cyrillic-mobile-rec"))
-        assertEquals(setOf("murmur-hebrew/ocr/inference.onnx", "murmur-hebrew/ocr/inference.yml"), files("pp-ocrv5-ru-en-he-mobile-rec"))
+        assertEquals(
+            setOf("murmur-cleanup/ocr/pp-ocrv5-ru-en-he-mobile-rec/inference.onnx", "murmur-cleanup/ocr/pp-ocrv5-ru-en-he-mobile-rec/inference.yml"),
+            files("pp-ocrv5-ru-en-he-mobile-rec"),
+        )
     }
 
     private fun collect(e: JsonElement): List<JsonObject> = when (e) {
