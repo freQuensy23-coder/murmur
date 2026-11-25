@@ -64,6 +64,7 @@ class GuardPyPort : OutputGuard {
         val fb = fallbackText(tr, ctx)
         val o = repair(output, tr, ctx)
         val cat = ctx?.app?.category
+        val fieldKind = ctx?.field?.kind
         val tw = content(words(tr))
         val ow = content(words(o))
         fun fallback(reason: String) = GuardVerdict(fb, GuardAction.FALLBACK, reason)
@@ -80,7 +81,7 @@ class GuardPyPort : OutputGuard {
         if (ow.size > GROW_K * tw.size + GROW_ADD || (tw.size >= SHRINK_MIN_IN && ow.size < SHRINK_K * tw.size)) {
             return fallback("R4_length")
         }
-        if (cat == null || cat !in NO_SCRIPT_CHECK) {
+        if ((cat == null || cat !in NO_SCRIPT_CHECK) && (fieldKind == null || fieldKind !in NO_SCRIPT_CHECK)) {
             val (tl, tc, th) = letters(tr)
             val (ol, oc, oh) = letters(o)
             val tn = tl + tc + th

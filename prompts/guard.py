@@ -322,6 +322,7 @@ def guard(transcript: str, output: str, ctx: dict | None = None) -> Verdict:
     fb = fallback_text(tr, ctx)
     o = repair(output, tr, ctx)
     cat = (ctx.get("app") or {}).get("category")
+    field_kind = (ctx.get("field") or {}).get("kind")
     tw, ow = _content(_words(tr)), _content(_words(o))
 
     if not o:
@@ -342,7 +343,7 @@ def guard(transcript: str, output: str, ctx: dict | None = None) -> Verdict:
         return Verdict(fb, "fallback", "R4_length")
     if len(ow) > GROW_K * len(tw) + GROW_ADD or (len(tw) >= SHRINK_MIN_IN and len(ow) < SHRINK_K * len(tw)):
         return Verdict(fb, "fallback", "R4_length")
-    if cat not in NO_SCRIPT_CHECK:
+    if cat not in NO_SCRIPT_CHECK and field_kind not in NO_SCRIPT_CHECK:
         (tl, tc, th), (ol, oc, oh) = _letters(tr), _letters(o)
         tn, on = tl + tc + th, ol + oc + oh
         if tn >= SCRIPT_MIN_LETTERS and on:

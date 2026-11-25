@@ -2018,7 +2018,7 @@
    "displayName": "PP-OCRv5 Multilingual recogniser",
    "publisher": "Murmur",
    "family": "pp-ocr",
-   "baseRepo": "freQuensy23/murmur-hebrew",
+   "baseRepo": "satoshiNakomoroReal/murmur-cleanup",
    "description": "Reads Russian, English, and Hebrew text lines in a single 8.9 MB model.",
    "license": {
     "id": "Apache-2.0"
@@ -2052,23 +2052,23 @@
      "files": [
       {
        "name": "rec.onnx",
-       "url": "https://huggingface.co/freQuensy23/murmur-hebrew/resolve/ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc/ocr/inference.onnx",
+       "url": "https://huggingface.co/satoshiNakomoroReal/murmur-cleanup/resolve/4568426cc5992d3a4b2b307f7f4760db45ac1d52/ocr/pp-ocrv5-ru-en-he-mobile-rec/inference.onnx",
        "bytes": 8920238,
        "sha256": "5c7cfcc6da745a1faaa899f69238e5a3f55832c549603f7214244ad20d58153f",
        "source": "huggingface",
-       "repo": "freQuensy23/murmur-hebrew",
-       "revision": "ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc",
-       "path": "ocr/inference.onnx"
+       "repo": "satoshiNakomoroReal/murmur-cleanup",
+       "revision": "4568426cc5992d3a4b2b307f7f4760db45ac1d52",
+       "path": "ocr/pp-ocrv5-ru-en-he-mobile-rec/inference.onnx"
       },
       {
        "name": "rec.yml",
-       "url": "https://huggingface.co/freQuensy23/murmur-hebrew/resolve/ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc/ocr/inference.yml",
+       "url": "https://huggingface.co/satoshiNakomoroReal/murmur-cleanup/resolve/4568426cc5992d3a4b2b307f7f4760db45ac1d52/ocr/pp-ocrv5-ru-en-he-mobile-rec/inference.yml",
        "bytes": 8267,
        "sha256": "aba1522c717a054f05b35c03c11310925ad6427884416ed8feaf44ceb5fbc812",
        "source": "huggingface",
-       "repo": "freQuensy23/murmur-hebrew",
-       "revision": "ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc",
-       "path": "ocr/inference.yml"
+       "repo": "satoshiNakomoroReal/murmur-cleanup",
+       "revision": "4568426cc5992d3a4b2b307f7f4760db45ac1d52",
+       "path": "ocr/pp-ocrv5-ru-en-he-mobile-rec/inference.yml"
       }
      ],
      "layout": {
@@ -3233,12 +3233,12 @@
      "files": [
       {
        "name": "model.gguf",
-       "url": "https://huggingface.co/freQuensy23/murmur-hebrew/resolve/c9c8bf941fec68f808bcad0c9fb48d39b0af6a9f/girgur-cleanup-qwen3.5-2b-Q4_0.gguf",
+       "url": "https://huggingface.co/satoshiNakomoroReal/murmur-cleanup/resolve/4568426cc5992d3a4b2b307f7f4760db45ac1d52/girgur-cleanup-qwen3.5-2b-Q4_0.gguf",
        "bytes": 1202484864,
-       "sha256": "9da11892bb75a23f2555a80ef9522041c888a9f820b52e06be18f9a3be68b444",
+       "sha256": "059af7d05dccfc6eb1e07dd83a34244b50a5c0a78b9346f1ce7829a2b41b5e56",
        "source": "huggingface",
-       "repo": "freQuensy23/murmur-hebrew",
-       "revision": "c9c8bf941fec68f808bcad0c9fb48d39b0af6a9f",
+       "repo": "satoshiNakomoroReal/murmur-cleanup",
+       "revision": "4568426cc5992d3a4b2b307f7f4760db45ac1d52",
        "path": "girgur-cleanup-qwen3.5-2b-Q4_0.gguf"
       }
      ],

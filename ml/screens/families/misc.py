@@ -15,16 +15,21 @@ TEMPLATE_APPS = {
 
 
 def ai_chat(c: Ctx) -> str:
-    name = c.r.choice(["Assistant", "Ассистент", "AI Chat", "Copilot-like"]) if c.r.random() < 0.7 else "Chat"
+    app_lbl = (c.spec.get("app") or {}).get("label") or ""
+    if app_lbl and app_lbl not in ("", "default"):
+        name = app_lbl
+    else:
+        name = c.r.choice(["ChatGPT", "Claude", "Gemini", "Perplexity", "Assistant", "Ассистент"])
     head = (f'<div class="appbar">{C.icon("menu")}<span class="grow" style="font-size:{C.fs(18)};font-weight:500;margin-left:8px" data-role="chrome">'
             f'{e(name)}</span>{C.icon("pen")}<span style="width:6px"></span>{C.icon("dots")}</div>')
     msgs = []
     for m in c.messages:
+        rtl = ' dir="rtl"' if any("\u05d0" <= ch <= "\u05ea" for ch in m["text"]) else ""
         if m.get("is_me"):
-            msgs.append(f'<div class="row" style="justify-content:flex-end;margin:10px 14px"><div style="max-width:80%;background:var(--surface2);'
+            msgs.append(f'<div class="row" style="justify-content:flex-end;margin:10px 14px"><div{rtl} style="max-width:80%;background:var(--surface2);'
                         f'border-radius:20px;padding:10px 14px;white-space:pre-wrap;word-break:break-word" data-role="message">{e(m["text"])}</div></div>')
         else:
-            paras = "".join(f'<p style="margin:0 0 10px" data-role="message">{e(p)}</p>' for p in m["text"].split("\n") if p.strip())
+            paras = "".join(f'<p{rtl} style="margin:0 0 10px" data-role="message">{e(p)}</p>' for p in m["text"].split("\n") if p.strip())
             msgs.append(f'<div style="margin:10px 16px;line-height:1.5">{paras}<div class="row t3" style="gap:14px">'
                         f'{C.icon("dcheck", 18)}{C.icon("refresh", 18)}{C.icon("star", 18)}</div></div>')
     if c.snippets:

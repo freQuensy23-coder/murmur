@@ -191,8 +191,8 @@ class BundledCatalogTest {
         assertEquals(listOf("ru", "en", "he"), girgur.languages.codes)
         assertEquals(catalog.model(ModelId("murmur-cleanup-qwen3.5-2b"))!!.llm, girgur.llm)
         val girgurFile = girgur.artifacts.single().files.single()
-        assertEquals("freQuensy23/murmur-hebrew", girgurFile.repo)
-        assertTrue(girgurFile.url.startsWith("https://huggingface.co/freQuensy23/murmur-hebrew/resolve/"))
+        assertEquals("satoshiNakomoroReal/murmur-cleanup", girgurFile.repo)
+        assertTrue(girgurFile.url.startsWith("https://huggingface.co/satoshiNakomoroReal/murmur-cleanup/resolve/"))
         assertTrue(girgurFile.bytes > 1_000_000_000L)
         assertEquals(64, girgurFile.sha256.length)
 
