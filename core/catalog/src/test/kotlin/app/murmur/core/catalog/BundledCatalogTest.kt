@@ -187,9 +187,22 @@ class BundledCatalogTest {
 
         val girgur = catalog.model(ModelId("girgur-cleanup-qwen3.5-2b"))!!
         assertEquals(ModelKind.LLM, girgur.kind)
-        assertEquals(Status.IN_TRAINING, girgur.status)
+        assertEquals(Status.AVAILABLE, girgur.status)
         assertEquals(listOf("ru", "en", "he"), girgur.languages.codes)
         assertEquals(catalog.model(ModelId("murmur-cleanup-qwen3.5-2b"))!!.llm, girgur.llm)
+        val girgurFile = girgur.artifacts.single().files.single()
+        assertEquals("freQuensy23/murmur-hebrew", girgurFile.repo)
+        assertTrue(girgurFile.url.startsWith("https://huggingface.co/freQuensy23/murmur-hebrew/resolve/"))
+        assertTrue(girgurFile.bytes > 1_000_000_000L)
+        assertEquals(64, girgurFile.sha256.length)
+
+        val ocrRec = catalog.model(ModelId("pp-ocrv5-ru-en-he-mobile-rec"))!!
+        assertEquals(catalog.defaults.ocrRec, ocrRec.id)
+        assertEquals(ModelKind.OCR_REC, ocrRec.kind)
+        assertEquals(Status.AVAILABLE, ocrRec.status)
+        assertTrue("he" in ocrRec.languages.codes)
+        assertEquals(setOf("model", "dict"), ocrRec.artifacts.single().layout.keys)
+        assertTrue(ocrRec.artifacts.single().files.all { it.bytes > 0 && it.sha256.matches(Regex("[0-9a-f]{64}")) })
     }
 }
 

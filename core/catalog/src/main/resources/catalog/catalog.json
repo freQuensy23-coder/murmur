@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "catalogVersion": "2026-11-24.1",
+ "catalogVersion": "2026-11-25.1",
  "generated": "2026-11-20 by core/catalog/tools/build_catalog.py (network-verified)",
  "defaults": {
   "asr": {
@@ -11,7 +11,7 @@
   },
   "vad": "silero-vad-v5",
   "ocrDet": "pp-ocrv6-tiny-det",
-  "ocrRec": "pp-ocrv5-cyrillic-mobile-rec"
+  "ocrRec": "pp-ocrv5-ru-en-he-mobile-rec"
  },
  "packs": [
   {
@@ -23,7 +23,7 @@
     "parakeet-tdt-0.6b-v3",
     "silero-vad-v5",
     "pp-ocrv6-tiny-det",
-    "pp-ocrv5-cyrillic-mobile-rec",
+    "pp-ocrv5-ru-en-he-mobile-rec",
     "murmur-cleanup-qwen3.5-2b"
    ]
   },
@@ -35,7 +35,7 @@
     "parakeet-tdt-0.6b-v3",
     "silero-vad-v5",
     "pp-ocrv6-tiny-det",
-    "pp-ocrv5-cyrillic-mobile-rec",
+    "pp-ocrv5-ru-en-he-mobile-rec",
     "murmur-cleanup-qwen3.5-0.8b"
    ]
   },
@@ -2013,6 +2013,76 @@
    "evidence": "docs/research/verify/asr-ocr.md"
   },
   {
+   "id": "pp-ocrv5-ru-en-he-mobile-rec",
+   "kind": "ocr-rec",
+   "displayName": "PP-OCRv5 Multilingual recogniser",
+   "publisher": "Murmur",
+   "family": "pp-ocr",
+   "baseRepo": "freQuensy23/murmur-hebrew",
+   "description": "Reads Russian, English, and Hebrew text lines in a single 8.9 MB model.",
+   "license": {
+    "id": "Apache-2.0"
+   },
+   "tier": "recommended",
+   "languages": {
+    "codes": [
+     "ru",
+     "en",
+     "he",
+     "uk",
+     "be",
+     "bg",
+     "sr"
+    ],
+    "count": 7,
+    "mode": "auto"
+   },
+   "ocr": {
+    "stage": "rec",
+    "pipelineVersion": "ocr.v2"
+   },
+   "artifacts": [
+    {
+     "id": "pp-ocrv5-ru-en-he-mobile-rec@onnx",
+     "runtime": "ort/ppocr-rec",
+     "format": "onnx",
+     "units": [
+      "cpu"
+     ],
+     "files": [
+      {
+       "name": "rec.onnx",
+       "url": "https://huggingface.co/freQuensy23/murmur-hebrew/resolve/ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc/ocr/inference.onnx",
+       "bytes": 8920238,
+       "sha256": "5c7cfcc6da745a1faaa899f69238e5a3f55832c549603f7214244ad20d58153f",
+       "source": "huggingface",
+       "repo": "freQuensy23/murmur-hebrew",
+       "revision": "ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc",
+       "path": "ocr/inference.onnx"
+      },
+      {
+       "name": "rec.yml",
+       "url": "https://huggingface.co/freQuensy23/murmur-hebrew/resolve/ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc/ocr/inference.yml",
+       "bytes": 8267,
+       "sha256": "aba1522c717a054f05b35c03c11310925ad6427884416ed8feaf44ceb5fbc812",
+       "source": "huggingface",
+       "repo": "freQuensy23/murmur-hebrew",
+       "revision": "ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc",
+       "path": "ocr/inference.yml"
+      }
+     ],
+     "layout": {
+      "model": "rec.onnx",
+      "dict": "rec.yml"
+     },
+     "memoryMb": {
+      "cpu": 84
+     }
+    }
+   ],
+   "evidence": "docs/research/verify/asr-ocr.md"
+  },
+  {
    "id": "pp-ocrv5-cyrillic-mobile-rec",
    "kind": "ocr-rec",
    "displayName": "PP-OCRv5 Cyrillic recogniser",
@@ -2023,7 +2093,7 @@
    "license": {
     "id": "Apache-2.0"
    },
-   "tier": "recommended",
+   "tier": "optional",
    "languages": {
     "codes": [
      "ru",
@@ -3140,8 +3210,8 @@
     "url": "https://huggingface.co/Qwen/Qwen3.5-2B/blob/main/LICENSE",
     "note": "yes"
    },
-   "tier": "planned",
-   "status": "in_training",
+   "tier": "recommended",
+   "status": "available",
    "llm": {
     "template": "qwen3.5",
     "promptProfile": "finetuned.v2",
@@ -3149,8 +3219,42 @@
     "prefixTokens": 116,
     "kvBytesPerToken": 12288
    },
-   "artifacts": [],
-   "description": "Trilingual fine-tuned cleanup model (Russian, English, Hebrew) based on Qwen3.5 2B."
+   "artifacts": [
+    {
+     "id": "girgur-cleanup-qwen3.5-2b@q4_0",
+     "runtime": "llama/gguf",
+     "format": "gguf",
+     "quant": "Q4_0",
+     "units": [
+      "npu",
+      "gpu",
+      "cpu"
+     ],
+     "files": [
+      {
+       "name": "model.gguf",
+       "url": "https://huggingface.co/freQuensy23/murmur-hebrew/resolve/ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc/girgur-cleanup-qwen3.5-2b-Q4_0.gguf",
+       "bytes": 1202484864,
+       "sha256": "a7c2be3627cfb7181d84a990e2cca986a1ec352b1047f3f8fb3fd387547391a3",
+       "source": "huggingface",
+       "repo": "freQuensy23/murmur-hebrew",
+       "revision": "ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc",
+       "path": "girgur-cleanup-qwen3.5-2b-Q4_0.gguf"
+      }
+     ],
+     "layout": {
+      "model": "model.gguf"
+     },
+     "memoryMb": {
+      "npu": 1536,
+      "gpu": 1536,
+      "cpu": 1536
+     },
+     "preferredUnit": "cpu"
+    }
+   ],
+   "description": "Murmur's trilingual fine-tuned cleanup model (Russian, English, Hebrew) based on Qwen3.5 2B.",
+   "evidence": "docs/research/verify/llm-npu.md"
   }
  ]
 }

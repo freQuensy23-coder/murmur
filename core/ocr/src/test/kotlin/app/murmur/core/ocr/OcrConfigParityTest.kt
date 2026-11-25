@@ -116,8 +116,8 @@ class OcrConfigParityTest {
     fun catalogShipsTheReferenceModels() {
         val catalog = Json.parseToJsonElement(File(root, "core/catalog/src/main/resources/catalog/catalog.json").readText())
         val entries = collect(catalog).filter { it["kind"]?.jsonPrimitive?.content in setOf("ocr-det", "ocr-rec") }
-        assertEquals(2, entries.size)
-        fun files(kind: String) = entries.single { it["kind"]!!.jsonPrimitive.content == kind }.let { e ->
+        assertEquals(3, entries.size)
+        fun files(id: String) = entries.single { it["id"]!!.jsonPrimitive.content == id }.let { e ->
             assertEquals(c.pipelineVersion, e.getValue("ocr").jsonObject.getValue("pipelineVersion").jsonPrimitive.content)
             // the CPU artifact (ort/ppocr-*) ships the reference files; the NPU artifact (ort-qnn/*, WP-21) holds their contexts
             e.getValue("artifacts").jsonArray.map { it.jsonObject }.single { it.getValue("runtime").jsonPrimitive.content.startsWith("ort/") }
@@ -126,8 +126,9 @@ class OcrConfigParityTest {
                 o.getValue("repo").jsonPrimitive.content.substringAfter('/') + "/" + o.getValue("path").jsonPrimitive.content
             }.toSet()
         }
-        assertEquals(setOf(pyString(fields.getValue("det_model"))), files("ocr-det"))
-        assertEquals(setOf(pyString(fields.getValue("rec_model")), pyString(fields.getValue("rec_dict"))), files("ocr-rec"))
+        assertEquals(setOf(pyString(fields.getValue("det_model"))), files("pp-ocrv6-tiny-det"))
+        assertEquals(setOf(pyString(fields.getValue("rec_model")), pyString(fields.getValue("rec_dict"))), files("pp-ocrv5-cyrillic-mobile-rec"))
+        assertEquals(setOf("murmur-hebrew/ocr/inference.onnx", "murmur-hebrew/ocr/inference.yml"), files("pp-ocrv5-ru-en-he-mobile-rec"))
     }
 
     private fun collect(e: JsonElement): List<JsonObject> = when (e) {

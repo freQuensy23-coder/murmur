@@ -43,7 +43,7 @@ class PacksTest {
         for (o in listOf(foldRec, emuRec)) {
             assertTrue(ArtifactId("silero-vad-v5@onnx") in o.artifacts)
             assertTrue(ArtifactId("pp-ocrv6-tiny-det@onnx") in o.artifacts)
-            assertTrue(ArtifactId("pp-ocrv5-cyrillic-mobile-rec@onnx") in o.artifacts)
+            assertTrue(ArtifactId("pp-ocrv5-ru-en-he-mobile-rec@onnx") in o.artifacts)
             assertEquals(ModelId("murmur-cleanup-qwen3.5-2b"), o.llm?.id)
             assertEquals(o.plan.sumOf { it.artifact.downloadBytes }, o.totalBytes)
             assertEquals("nothing installed yet", o.totalBytes, o.remainingBytes)
@@ -99,7 +99,7 @@ class PacksTest {
         val heArt = ArtifactId("zipformer2-66m-streaming-he@onnx-int8")
         assertEquals(ModelId("zipformer2-66m-streaming-he"), rec.hebrewAsr?.id)
         assertEquals(ModelId("zipformer2-66m-streaming-he"), speech.hebrewAsr?.id)
-        assertEquals(ModelId("qwen3.5-2b"), rec.llm?.id)
+        assertEquals(ModelId("girgur-cleanup-qwen3.5-2b"), rec.llm?.id)
         assertNull(speech.llm)
         assertTrue(heArt in rec.artifacts)
         assertTrue(heArt in speech.artifacts)
@@ -109,7 +109,7 @@ class PacksTest {
         )
         val applied = PackPlanner.applyChoice(heSettings, rec)
         assertEquals(ModelId("zipformer2-66m-streaming-he"), applied.hebrewAsrModel)
-        assertEquals(CleanupChoice.Model(ModelId("qwen3.5-2b")), applied.cleanup)
+        assertEquals(CleanupChoice.Model(ModelId("girgur-cleanup-qwen3.5-2b")), applied.cleanup)
     }
 
     @Test

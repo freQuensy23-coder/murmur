@@ -141,6 +141,26 @@ class OcrStagesTest {
         assertEquals(850, keys.size)
         assertArrayEquals(recKeys, (keys.joinToString("\n") + "\n").toByteArray(Charsets.UTF_8))
     }
+
+    @Test
+    fun dictionaryReaderHandlesTrilingualHebrewEntries() {
+        val yml = """
+            |Global:
+            |  model_name: ru_en_he_PP-OCRv5_mobile_rec
+            |PostProcess:
+            |  name: CTCLabelDecode
+            |  character_dict:
+            |  - '!'
+            |  - ''''
+            |  - 'א'
+            |  - 'ת'
+            |  - '׳'
+            |  - '״'
+            |  - '₪'
+            |  - '־'
+            """.trimMargin()
+        assertEquals(listOf("!", "'", "א", "ת", "׳", "״", "₪", "־"), OcrDictionary.fromInferenceYml(yml))
+    }
 }
 
 /** A model stub for the size rules (no inference). */

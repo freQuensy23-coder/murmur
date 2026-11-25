@@ -150,12 +150,13 @@ class OnboardingControllerTest {
         assertEquals("falls back from hidden light pack", "recommended", w.ctl.models.value.selectedId)
         val rec = w.ctl.models.value.selected!!
         assertEquals(ModelId("zipformer2-66m-streaming-he"), rec.hebrewAsr?.id)
-        assertEquals(ModelId("qwen3.5-2b"), rec.llm?.id)
+        assertEquals(ModelId("girgur-cleanup-qwen3.5-2b"), rec.llm?.id)
         w.ctl.download()
         runCurrent()
         assertEquals(ModelId("zipformer2-66m-streaming-he"), w.settings.settings.value.hebrewAsrModel)
-        assertEquals(CleanupChoice.Model(ModelId("qwen3.5-2b")), w.settings.settings.value.cleanup)
+        assertEquals(CleanupChoice.Model(ModelId("girgur-cleanup-qwen3.5-2b")), w.settings.settings.value.cleanup)
         assertTrue(ArtifactId("zipformer2-66m-streaming-he@onnx-int8") in w.downloads.requests)
+        assertTrue(ArtifactId("girgur-cleanup-qwen3.5-2b@q4_0") in w.downloads.requests)
     }
 
     @Test

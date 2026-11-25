@@ -415,7 +415,11 @@ object HubLogic {
         val entries = input.catalog.models.filter { it.kind == kind }
         // Catalog order, except: unavailable (in training) models go last, so the list starts with what can be used.
         val rows = entries.map { row(it, input) }.sortedBy { if (it.state is RowState.InTraining) 1 else 0 }
-        val support = if (tab == HubTab.SPEECH) input.catalog.models.filter { it.kind in SUPPORT_KINDS }.map { row(it, input) } else emptyList()
+        val support = if (tab == HubTab.SPEECH) {
+            listOf(input.catalog.defaults.vad, input.catalog.defaults.ocrDet, input.catalog.defaults.ocrRec)
+                .mapNotNull { input.catalog.model(it) }
+                .map { row(it, input) }
+        } else emptyList()
         return HubList(
             tab = tab,
             rows = rows,

@@ -31,7 +31,7 @@ class PrepareTargetsTest {
     private val pCpu = ArtifactId("parakeet-tdt-0.6b-v3@onnx-int8")
     private val vad = ArtifactId("silero-vad-v5@onnx")
     private val det = ArtifactId("pp-ocrv6-tiny-det@onnx")
-    private val rec = ArtifactId("pp-ocrv5-cyrillic-mobile-rec@onnx")
+    private val rec = ArtifactId("pp-ocrv5-ru-en-he-mobile-rec@onnx")
     private val lfm = ArtifactId("lfm3-1.7b@q4_0-qad")
 
     private class States(private val map: Map<ArtifactId, InstallState>) : InstalledModelsRepository {
