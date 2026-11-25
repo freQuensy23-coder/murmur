@@ -91,14 +91,15 @@ LANG_NAMES = {"ru": "Russian", "en": "English", "mixed": "Russian + English",
 GEN_SYSTEM_HE_ADDENDUM = """
 
 Additional Hebrew rules (for Hebrew, Hebrew + English, and Hebrew + Russian scenarios):
-- Write natural, modern Israeli Hebrew (without niqqud / vowel points). Use standard geresh/gershayim (ג׳, צ׳, צה״ל, ד״ר, בע״מ) where natural.
+- Write natural, modern Israeli Hebrew (without niqqud / vowel points). Use standard geresh/gershayim (ג׳, צ׳, צה״ל, ד״ר, בע״מ, נתב״ג) where natural.
 - Hebrew has no letter case: for 'continuation' mid-sentence scenarios, never repeat before_cursor and do not add a leading space.
-- Hebrew numbers & times: write everything in Hebrew words in "spoken" ("עשרים וחמישה בנובמבר בשלוש וחצי", "מאתיים וחמישים שקלים", "חמישה עשר אחוז"); in "target" use digits per rule 4 ("25 בנובמבר ב-15:30" or "בשעה 3:30", "250 ₪" or "250 שקלים", "15%"). Small everyday counts (אחד, שתיים, שלוש פעמים) stay words.
+- Hebrew numbers, times, money & street addresses: write everything in Hebrew words in "spoken" ("עשרים וחמישה בנובמבר בשלוש וחצי", "מאתיים וחמישים שקלים", "חמישה עשר אחוז", "ברחוב רוטשילד ארבעים וחמש", "פיאר שמונה מאות וארבע עשרה"); in "target" use digits per rule 4 ("25 בנובמבר ב-15:30" or "בשעה 3:30", "250 ₪" or "250 שקלים", "15%", "ברחוב רוטשילד 45" — NEVER add an extra "ב-" before house numbers!, "PR #814" or "PR 814" — NEVER turn three-digit ticket/PR numbers into clock times like "800:14"!). Small everyday counts (אחד, שתיים, שלוש פעמים) stay words.
+- Hebrew spoken emails & URLs ('address'): in "spoken", users often say the entire address in Hebrew words ("דניאל נקודה כהן שטרודל ג׳ימייל נקודה קום", "נועה מקף לוי שטרודל וואלה נקודה סי או נקודה איי אל", "גיטהאב נקודה קום סלאש אורי מקף אפ"). In "target", ALWAYS output the clean lowercase Latin email/URL ("daniel.cohen@gmail.com", "noa-levi@walla.co.il", "github.com/ori-app").
 - Hebrew formatting commands in "spoken": נקודה (.), פסיק (,), סימן שאלה (?), סימן קריאה (!), נקודתיים (:), שורה חדשה (\\n), פסקה חדשה (\\n\\n), פתח מרכאות / סגור מרכאות. False friends like "נקודת מפגש" or "נקודה חשובה" stay as words.
-- Hebrew self-correction markers in "spoken": לא רגע, סליחה, כלומר, בעצם, זאת אומרת, תמחק את זה, לא לא, אופס. Keep only the corrected version in "target".
+- Hebrew self-correction markers in "spoken": לא רגע, סליחה, כלומר, בעצם, זאת אומרת, תמחק את זה, לא לא, אופס, כאילו לא X אלא Y. Keep only the corrected version in "target", and cleanly drop utterance-initial fillers ("טוב אז", "אממ טוב אז", "נו", "אז") without distorting the first real word.
 - Hebrew list ordinals in "spoken": ראשון... שני... שלישי, קודם כל... דבר שני... דבר שלישי, אחת... שתיים... שלוש. Target: intro line ending with ":", then "1. ...", "2. ...".
-- Hebrew+English code-switching: attach Hebrew single-letter prefixes with a hyphen before Latin terms (ל-GitHub, ב-Slack, מ-Docker, ה-PR, ו-Redis). Product/tech names stay Latin in "spoken" and "target" (code applies Hebrew ASR transliteration like גיטהאב later).
-- Hebrew+Russian code-switching: keep every Hebrew word in Hebrew script and every Russian word in Cyrillic script — never translate either side.
+- Hebrew+English code-switching: attach Hebrew single-letter prefixes with a hyphen before Latin terms (ל-GitHub, ב-Slack, מ-Docker, ה-PR, ב-Gradle, ו-Redis, על Fold7). Product/tech names stay Latin in "spoken" and "target" (code applies Hebrew ASR transliteration like גיטהאב, גריידל, פיאר later).
+- Hebrew+Russian code-switching: keep every Hebrew word in Hebrew script and every Russian word in Cyrillic script — never translate either side. When Russian speech includes common Israeli everyday terms in Cyrillic transliteration (теудат зеут, битуах леуми, купат холим, арнона, мазган, каньон, ваад байт) or in Hebrew script (קופת חולים מכבי, ביטוח לאומי, תעודת זהות), keep the exact script the speaker used with clean spelling.
 - Meaningful Hebrew fillers (for 'meaningful_filler'): words like "בעצם" (actually/essentially when load-bearing), "כאילו" (as if), "סתם" (just/for no reason), "אז" (then/so causally) that carry real meaning and MUST stay in "target"."""
 
 CATEGORY_HINTS_HE = {

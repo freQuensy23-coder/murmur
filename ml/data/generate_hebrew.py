@@ -46,7 +46,7 @@ SPLITS = ("train", "dev", "test")
 
 def merge_datasets(
     base_dir: Path | None,
-    hebrew_dir: Path,
+    hebrew_dir: Path | list[Path],
     out_dir: Path,
     *,
     seed: int = 42,
@@ -55,7 +55,7 @@ def merge_datasets(
     strict_schema: bool = True,
     fail_on_recheck: bool = False,
 ) -> dict:
-    """Merge RU+EN (`base_dir`) and Hebrew (`hebrew_dir`) into `out_dir` with full validation.
+    """Merge RU+EN (`base_dir`) and one or more Hebrew shard dirs (`hebrew_dir`) into `out_dir`.
 
     Returns a summary dict (also written to `out_dir/merge_stats.json`).
     Raises SystemExit on duplicate IDs, schema errors, or split leakage.
@@ -66,9 +66,11 @@ def merge_datasets(
         if not (base_dir / "train.jsonl").exists():
             raise SystemExit(f"base dataset missing {base_dir / 'train.jsonl'}")
         sources.append(("base", base_dir))
-    if not (hebrew_dir / "train.jsonl").exists():
-        raise SystemExit(f"hebrew dataset missing {hebrew_dir / 'train.jsonl'}")
-    sources.append(("hebrew", hebrew_dir))
+    he_dirs = [hebrew_dir] if isinstance(hebrew_dir, Path) else list(hebrew_dir)
+    for idx, hd in enumerate(he_dirs):
+        if not (hd / "train.jsonl").exists():
+            raise SystemExit(f"hebrew dataset missing {hd / 'train.jsonl'}")
+        sources.append((f"hebrew{'' if idx == 0 else idx + 1}", hd))
 
     seen_ids: set[str] = set()
     all_recs: list[dict] = []
@@ -137,7 +139,7 @@ def merge_datasets(
     stats = {
         "created_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "base_dir": str(base_dir) if base_dir else None,
-        "hebrew_dir": str(hebrew_dir),
+        "hebrew_dir": [str(p) for p in he_dirs] if len(he_dirs) > 1 else str(he_dirs[0]),
         "out_dir": str(out_dir),
         "loaded_by_source": dict(sorted(per_source.items())),
         "dropped": dict(dropped.most_common()),
@@ -158,6 +160,7 @@ def merge_datasets(
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--hebrew-out", default=str(DEFAULT_HEBREW), help="output dir for the Hebrew+mixed shard")
+    ap.add_argument("--extra-hebrew", action="append", default=[], help="additional Hebrew shard dirs to include in merge")
     ap.add_argument("--base-dir", default=str(DEFAULT_BASE), help="existing RU+EN dataset dir (.cache/ml/data/final)")
     ap.add_argument("--out", default=str(DEFAULT_OUT), help="merged Girgur dataset dir (.cache/ml/data/girgur)")
     ap.add_argument("--merge-only", action="store_true", help="skip generation; merge --base-dir + --hebrew-out -> --out")
@@ -208,9 +211,10 @@ def main(argv=None) -> int:
             return 0
 
     base_dir = None if a.hebrew_only else Path(a.base_dir)
+    he_dirs = [hebrew_dir] + [Path(p) for p in a.extra_hebrew]
     merged = merge_datasets(
         base_dir=base_dir,
-        hebrew_dir=hebrew_dir,
+        hebrew_dir=he_dirs if len(he_dirs) > 1 else hebrew_dir,
         out_dir=Path(a.out),
         check_render=True,
         run_recheck=not a.skip_recheck,

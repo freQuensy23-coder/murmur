@@ -10,14 +10,21 @@ import random
 # package -> template (exact app look-alike), then category -> weighted templates
 BY_PACKAGE = {
     "org.telegram.messenger": "messenger_a", "org.telegram.plus": "messenger_a", "com.whatsapp": "messenger_b",
-    "com.slack": "work_chat", "com.microsoft.teams": "work_chat", "com.discord": "work_chat",
+    "com.facebook.orca": "messenger_a", "com.viber.voip": "messenger_b",
+    "com.slack": "work_chat", "com.Slack": "work_chat", "com.microsoft.teams": "work_chat", "com.discord": "work_chat",
     "com.atlassian.android.jira.core": "issue_tracker", "com.linear.app": "issue_tracker",
+    "com.monday.monday": "issue_tracker", "com.trello": "issue_tracker", "com.asana.app": "issue_tracker",
     "com.termux": "terminal", "com.github.android": "browser_pr", "com.google.android.keep": "notes",
     "com.samsung.android.app.notes": "notes", "com.google.android.apps.docs.editors.docs": "doc_editor",
-    "notion.id": "doc_editor", "md.obsidian": "notes", "com.google.android.calendar": "calendar_tasks",
-    "com.samsung.android.calendar": "calendar_tasks", "com.vkontakte.android": "social_feed",
-    "com.instagram.android": "social_feed", "com.openai.chatgpt": "ai_chat", "com.anthropic.claude": "ai_chat",
-    "com.yandex.alice": "ai_chat", "ai.perplexity.app.android": "ai_chat",
+    "com.microsoft.office.word": "doc_editor", "notion.id": "doc_editor", "md.obsidian": "notes",
+    "com.google.android.calendar": "calendar_tasks", "com.samsung.android.calendar": "calendar_tasks",
+    "com.todoist": "calendar_tasks", "com.google.android.apps.tasks": "calendar_tasks",
+    "com.waze": "browser_search", "com.google.android.apps.maps": "browser_search", "com.tranzmate": "browser_search",
+    "com.yad2.yad2": "browser_search", "com.booking": "browser_search",
+    "com.vkontakte.android": "social_feed", "com.instagram.android": "social_feed",
+    "com.facebook.katana": "social_feed", "com.instagram.barcelona": "social_feed", "com.google.android.youtube": "social_feed",
+    "com.openai.chatgpt": "ai_chat", "com.anthropic.claude": "ai_chat",
+    "com.yandex.alice": "ai_chat", "ai.perplexity.app.android": "ai_chat", "com.google.android.apps.bard": "ai_chat",
 }
 BY_CATEGORY = {
     "messaging": [("messenger_a", 55), ("messenger_b", 45)],

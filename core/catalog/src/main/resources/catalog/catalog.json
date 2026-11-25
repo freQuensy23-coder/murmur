@@ -1,6 +1,6 @@
 {
  "schema": 1,
- "catalogVersion": "2026-11-25.1",
+ "catalogVersion": "2026-11-25.2",
  "generated": "2026-11-20 by core/catalog/tools/build_catalog.py (network-verified)",
  "defaults": {
   "asr": {
@@ -3233,12 +3233,12 @@
      "files": [
       {
        "name": "model.gguf",
-       "url": "https://huggingface.co/freQuensy23/murmur-hebrew/resolve/ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc/girgur-cleanup-qwen3.5-2b-Q4_0.gguf",
+       "url": "https://huggingface.co/freQuensy23/murmur-hebrew/resolve/c9c8bf941fec68f808bcad0c9fb48d39b0af6a9f/girgur-cleanup-qwen3.5-2b-Q4_0.gguf",
        "bytes": 1202484864,
-       "sha256": "a7c2be3627cfb7181d84a990e2cca986a1ec352b1047f3f8fb3fd387547391a3",
+       "sha256": "9da11892bb75a23f2555a80ef9522041c888a9f820b52e06be18f9a3be68b444",
        "source": "huggingface",
        "repo": "freQuensy23/murmur-hebrew",
-       "revision": "ee3aa5ad911586bcb8c5dbc9c5e074315d117bbc",
+       "revision": "c9c8bf941fec68f808bcad0c9fb48d39b0af6a9f",
        "path": "girgur-cleanup-qwen3.5-2b-Q4_0.gguf"
       }
      ],

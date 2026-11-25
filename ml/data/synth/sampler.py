@@ -29,24 +29,41 @@ APP_LABELS = {
     "org.telegram.messenger": "Telegram", "org.telegram.plus": "Plus Messenger", "com.whatsapp": "WhatsApp",
     "org.thoughtcrime.securesms": "Signal", "com.samsung.android.messaging": "Messages",
     "com.google.android.apps.messaging": "Messages", "com.vkontakte.android": "VK", "com.discord": "Discord",
+    "com.facebook.orca": "Messenger", "com.viber.voip": "Viber",
     "com.Slack": "Slack", "com.microsoft.teams": "Teams", "com.mattermost.rn": "Mattermost",
+    "com.atlassian.android.jira.core": "Jira", "com.linear.app": "Linear", "com.monday.monday": "Monday.com",
+    "com.trello": "Trello", "com.asana.app": "Asana",
     "com.google.android.gm": "Gmail", "com.microsoft.office.outlook": "Outlook",
     "com.samsung.android.email.provider": "Samsung Email", "ru.yandex.mail": "Яндекс Почта",
     "com.samsung.android.app.notes": "Samsung Notes", "com.google.android.keep": "Keep Notes", "notion.id": "Notion",
-    "md.obsidian": "Obsidian", "com.google.android.apps.docs.editors.docs": "Docs", "com.termux": "Termux",
+    "md.obsidian": "Obsidian", "com.google.android.apps.docs.editors.docs": "Docs", "com.todoist": "Todoist",
+    "com.google.android.apps.tasks": "Google Tasks", "com.microsoft.office.word": "Word",
+    "com.termux": "Termux", "com.github.android": "GitHub",
     "com.android.chrome": "Chrome", "com.sec.android.app.sbrowser": "Samsung Internet",
     "com.google.android.googlequicksearchbox": "Google", "ru.yandex.searchplugin": "Яндекс",
+    "com.waze": "Waze", "com.google.android.apps.maps": "Google Maps", "com.tranzmate": "Moovit",
+    "com.yad2.yad2": "Yad2", "com.booking": "Booking.com",
     "com.twitter.android": "X", "com.instagram.android": "Instagram", "com.reddit.frontpage": "Reddit",
-    "com.linkedin.android": "LinkedIn", "com.openai.chatgpt": "ChatGPT", "com.yandex.alice": "Алиса",
+    "com.linkedin.android": "LinkedIn", "com.facebook.katana": "Facebook", "com.instagram.barcelona": "Threads",
+    "com.google.android.youtube": "YouTube",
+    "com.openai.chatgpt": "ChatGPT", "com.yandex.alice": "Алиса", "com.anthropic.claude": "Claude",
+    "ai.perplexity.app.android": "Perplexity", "com.google.android.apps.bard": "Gemini",
 }
 # app.category comes ONLY from the shared table prompts/tones/app_categories.v1.json (the one the Kotlin app
 # loads); a package absent from it is "default", as on the device. Extra apps are used only once that table
 # lists them, so training never sees a category the phone would not assign.
 EXTRA_APPS = {"code": [("com.github.android", "GitHub"), ("com.jetbrains.space", "Space")],
-              "work_chat": [("com.atlassian.android.jira.core", "Jira"), ("com.linear.app", "Linear")]}
+              "work_chat": [("com.atlassian.android.jira.core", "Jira"), ("com.linear.app", "Linear"),
+                            ("com.monday.monday", "Monday.com"), ("com.trello", "Trello"), ("com.asana.app", "Asana")]}
 AI_APPS = [("com.openai.chatgpt", "ChatGPT"), ("com.yandex.alice", "Алиса"), ("com.anthropic.claude", "Claude"),
-           ("ai.perplexity.app.android", "Perplexity")]
-DEFAULT_APPS = [("com.google.android.calendar", "Calendar"), ("com.samsung.android.calendar", "Calendar")] + AI_APPS
+           ("ai.perplexity.app.android", "Perplexity"), ("com.google.android.apps.bard", "Gemini")]
+DEFAULT_APPS = [
+    ("com.google.android.calendar", "Calendar"), ("com.samsung.android.calendar", "Calendar"),
+    ("com.bnhp.payments.app", "Bit"), ("com.payboxapp", "PayBox"),
+    ("com.wolt.android", "Wolt"), ("com.tenbis.android", "10bis"),
+    ("com.maccabi.health", "Maccabi"), ("com.clalit.android", "Clalit"),
+    ("com.gettaxi.android", "Gett"), ("com.airbnb.android", "Airbnb"),
+] + AI_APPS
 # prose dictation does not go into a terminal: 'code' apps only when the shared table has a non-terminal one
 PROSE_CODE_APPS = [p for p, c in APP_MAP.items() if c == "code" and p != "com.termux"]
 ADDRESS_APPS = [("com.google.android.gm", "Gmail"), ("com.microsoft.office.outlook", "Outlook"),
@@ -91,15 +108,15 @@ LANG_BY_CAT = {
     "address": [("ru", 50), ("en", 50)], "noise_only": [("ru", 50), ("en", 50)],
     "asr_artifact": [("ru", 60), ("en", 40)],
 }
-LANG_HE_DEFAULT = [("he", 55), ("he_en", 30), ("he_ru", 15)]
+LANG_HE_DEFAULT = [("he", 50), ("he_en", 30), ("he_ru", 20)]
 LANG_HE_BY_CAT = {
-    "context_resolution": [("he", 45), ("he_en", 40), ("he_ru", 15)],
-    "context_counterpart": [("he", 55), ("he_en", 35), ("he_ru", 10)],
+    "context_resolution": [("he", 40), ("he_en", 45), ("he_ru", 15)],
+    "context_counterpart": [("he", 50), ("he_en", 35), ("he_ru", 15)],
     "address": [("he", 70), ("he_en", 30)],
     "noise_only": [("he", 100)],
     "asr_artifact": [("he", 75), ("he_en", 25)],
-    "no_op": [("he", 60), ("he_en", 25), ("he_ru", 15)],
-    "near_no_op": [("he", 60), ("he_en", 25), ("he_ru", 15)],
+    "no_op": [("he", 55), ("he_en", 25), ("he_ru", 20)],
+    "near_no_op": [("he", 55), ("he_en", 25), ("he_ru", 20)],
 }
 MIX_W = [("ru_terms", 60), ("switch", 40)]
 MIX_W_HE_EN = [("he_terms", 65), ("he_en_switch", 35)]
@@ -133,6 +150,14 @@ TOPICS = ["planning a meeting", "running late", "weekend plans", "a bug report",
           "an invoice", "a job interview", "feedback on a document", "a car repair", "a birthday", "a delivery",
           "a gym schedule", "a recipe", "a lecture", "a client call", "a team offsite", "a broken laptop",
           "a vacation request", "news from a friend", "a restaurant booking", "a support ticket", "moving house"]
+TOPICS_HE_EXTRA = [
+    "a Bit or PayBox money transfer", "a Wolt or 10bis delivery note", "navigating to an Israeli street address",
+    "a Maccabi or Clalit clinic appointment", "a Bituach Leumi or Arnona payment", "a bank transfer at Leumi or Hapoalim",
+    "a rental contract and Vaad Bayit", "an Israel Railways or Rav-Kav commute", "a Ben Gurion Airport flight",
+    "a miluim reserve duty update", "buying or selling on Yad2", "picking up kids from gan or school",
+    "an annual car test or garage visit", "a Tel Aviv street meeting point", "a family Friday dinner (shishi)",
+    "a Monday.com or Jira sprint update", "a GitHub pull request and Gradle test", "a WhatsApp group poll",
+]
 TECH_TOPICS = ["an incident on production", "a code review", "a deployment", "a model training run", "a data pipeline",
                "a database migration", "a release plan", "an API design", "benchmark results", "a GPU budget",
                "a dependency upgrade", "a flaky test", "an on-call handover", "a prompt for an LLM", "a pull request",
@@ -379,7 +404,8 @@ def scenario(seed: int, split: str, index: int, category: str, lang: str, counte
         screen_terms += [d.text for d in TT.near_misses(TT.by_text(screen_terms[0]), split, 1)] if screen_terms else []
 
     persona = r.choice(TECH_PERSONAS if tech or spoken_terms else PERSONAS)
-    topic = r.choice(TECH_TOPICS if tech or (spoken_terms and r.random() < 0.7) else TOPICS)
+    he_topics = TOPICS + TOPICS_HE_EXTRA if lang in ("he", "he_en", "he_ru") else TOPICS
+    topic = r.choice(TECH_TOPICS if tech or (spoken_terms and r.random() < 0.7) else he_topics)
     register = "ты" if r.random() < {"messaging": 0.85, "work_chat": 0.65, "email": 0.25}.get(cat_app, 0.5) else "вы"
     sc = {
         "sid": stable_id("sc", key), "key": key, "group": key, "seed": seed, "index": index, "split": split,
